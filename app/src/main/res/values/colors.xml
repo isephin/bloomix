@@ -8,6 +8,8 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
+    <color name="dark_text">#FF000000</color>
+
     <color name="off_white">#FAF9F8</color> // background color
     <color name="peach">#FF8383</color> // title header
     <color name="light_grey">#EDEDED</color> // used for boxes

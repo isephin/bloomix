@@ -1,0 +1,78 @@
+<androidx.constraintlayout.widget.ConstraintLayout
+xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:app="http://schemas.android.com/apk/res-auto"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:background="@color/off_white"
+android:padding="20dp">
+
+<Button
+    android:id="@+id/btn_back"
+    android:layout_width="40dp"
+    android:layout_height="40dp"
+    android:text="&lt;"
+    android:textSize="20sp"
+    android:textColor="@color/dark_text"
+    android:background="@drawable/rounded_back_button"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toTopOf="parent" />
+
+<TextView
+    android:id="@+id/tv_title"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text="Your thoughts"
+    android:textSize="28sp"
+    android:layout_marginTop="32dp"
+    android:fontFamily="@font/gamja_flower"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintTop_toBottomOf="@id/btn_back" />
+
+<TextView
+    android:id="@+id/tv_prompt"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:text="Reflection Prompt here:"
+    android:padding="16dp"
+    android:layout_marginTop="32dp"
+    android:background="@drawable/rounded_card_background"
+    android:fontFamily="@font/gamja_flower"
+    android:textColor="@color/dark_text"
+    app:layout_constraintTop_toBottomOf="@id/tv_title"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintWidth_percent="0.9" />
+
+<EditText
+    android:id="@+id/et_journal_content"
+    android:layout_width="0dp"
+    android:layout_height="0dp"
+    android:hint="Write your thoughts here... Let your feelings flow"
+    android:gravity="top|start"
+    android:inputType="textMultiLine"
+    android:padding="16dp"
+    android:layout_marginTop="24dp"
+    android:layout_marginBottom="16dp"
+    android:background="@drawable/rounded_card_background"
+    android:fontFamily="@font/gamja_flower"
+    android:textColor="@color/dark_text"
+    app:layout_constraintTop_toBottomOf="@id/tv_prompt"
+    app:layout_constraintBottom_toTopOf="@id/fab_save"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintWidth_percent="0.9" />
+
+<com.google.android.material.floatingactionbutton.FloatingActionButton
+    android:id="@+id/fab_save"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="32dp"
+    android:src="@drawable/ic_plus"
+    app:tint="@color/white"
+    app:backgroundTint="@color/dark_text"
+    app:layout_constraintBottom_toBottomOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
