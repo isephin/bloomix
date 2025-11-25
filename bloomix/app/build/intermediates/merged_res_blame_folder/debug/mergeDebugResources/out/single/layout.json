@@ -1,0 +1,14 @@
+[
+    {
+        "merged": "com.example.bloomix.app-mergeDebugResources-81:/layout/activity_sign_up.xml",
+        "source": "com.example.bloomix.app-main-84:/layout/activity_sign_up.xml"
+    },
+    {
+        "merged": "C:\\Users\\fxnro\\.gradle\\daemon\\8.13\\com.example.bloomix.app-mergeDebugResources-81:\\layout\\activity_sign_up.xml",
+        "source": "C:\\Users\\fxnro\\.gradle\\daemon\\8.13\\com.example.bloomix.app-main-84:\\layout\\activity_sign_up.xml"
+    },
+    {
+        "merged": "C:\\Users\\fxnro\\.gradle\\daemon\\8.13\\com.example.bloomix.app-mergeDebugResources-81:\\layout\\activity_login.xml",
+        "source": "C:\\Users\\fxnro\\.gradle\\daemon\\8.13\\com.example.bloomix.app-main-84:\\layout\\activity_login.xml"
+    }
+]
