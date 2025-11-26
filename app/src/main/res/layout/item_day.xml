@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="60dp"
+    android:layout_margin="4dp"
+    android:background="@drawable/day_cell_bg"
+    android:padding="6dp">
+
+    <!-- Day Number -->
+    <TextView
+        android:id="@+id/tvDayNumber"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="1"
+        android:textSize="16sp"
+        android:textColor="#222222"
+        android:textStyle="bold" />
+
+    <!-- Flower icon (top-right) -->
+    <ImageView
+        android:id="@+id/ivFlower"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_gravity="top|end"
+        android:visibility="gone"
+        android:contentDescription="flower icon"
+        android:padding="2dp"/>
+</FrameLayout>

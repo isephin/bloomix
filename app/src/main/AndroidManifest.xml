@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest
+    package="com.example.bloomix"
+    xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application
         android:allowBackup="true"
@@ -11,33 +13,35 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Bloomix">
 
-        <!-- SignUp screen opens first -->
+        <!-- Launch Screen -->
         <activity
             android:name=".SignUp"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.Bloomix">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- LogIn screen (where the button redirects) -->
-        <activity
-            android:name=".LogIn"
-            android:exported="false"
-            android:label="Log In"
-            android:theme="@style/Theme.Bloomix" />
+        <activity android:name=".LogIn" android:exported="true" />
+        <activity android:name=".MainActivity" android:exported="true" />
+        <activity android:name=".CalendarActivity" android:exported="true" />
+        <activity android:name=".EmotionActivity" android:exported="true" />
 
-        <!-- Optional: keep this if you plan to use MainActivity later -->
-        <activity
-            android:name=".MainActivity"
-            android:exported="false" />
+        <!-- Newly added activities -->
+        <activity android:name=".JournalActivity" android:exported="true" />
+        <activity android:name=".SharedEmotionsActivity" android:exported="true" />
+
+        <!-- Your Flower screen -->
+        <activity android:name=".FlowerActivity" android:exported="true" />
+
+        <activity android:name=".FlowerResultActivity" android:exported="true" />
 
         <meta-data
             android:name="preloaded_fonts"
             android:resource="@array/preloaded_fonts" />
+
     </application>
 
 </manifest>
+

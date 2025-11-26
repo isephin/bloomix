@@ -1,3 +1,30 @@
 <resources>
     <string name="app_name">bloomix</string>
+
+    <!-- Calendar Navigation -->
+    <string name="previous_month">Previous Month</string>
+    <string name="next_month">Next Month</string>
+
+    <!-- Month Names (optional but recommended for dynamic calendar later) -->
+    <string name="january">January</string>
+    <string name="february">February</string>
+    <string name="march">March</string>
+    <string name="april">April</string>
+    <string name="may">May</string>
+    <string name="june">June</string>
+    <string name="july">July</string>
+    <string name="august">August</string>
+    <string name="september">September</string>
+    <string name="october">October</string>
+    <string name="november">November</string>
+    <string name="december">December</string>
+
+    <!-- Accessibility -->
+    <string name="flower_icon">Flower icon</string>
+    <string name="back_button">Back</string>
+
+    <!-- Journal Screen -->
+    <string name="your_journal">Your Journal:</string>
+    <string name="placeholder_entry">Write your thoughts…</string>
+    <string name="save_journal">Save</string>
 </resources>

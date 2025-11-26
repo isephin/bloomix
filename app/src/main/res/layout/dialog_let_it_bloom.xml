@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:background="@drawable/popup_bg">
+
+    <!-- Close Button -->
+    <ImageView
+        android:id="@+id/btnClosePopup"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:src="@drawable/ic_close"
+        android:layout_gravity="end"
+        android:contentDescription="Close popup"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Are you ready to let your flower bloom?"
+        android:textSize="16sp"
+        android:paddingTop="10dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="You cannot change the emotions and journal after you continue."
+        android:textSize="12sp"
+        android:paddingTop="6dp"
+        android:paddingBottom="14dp"/>
+
+    <Button
+        android:id="@+id/btnLetItBloom"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Let it Bloom!"
+        android:background="@drawable/button_bg"
+        android:textAllCaps="false"/>
+
+</LinearLayout>

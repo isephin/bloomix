@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="24dp"
+    android:background="@color/white">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <!-- Flower Image -->
+        <ImageView
+            android:id="@+id/flowerImage"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:layout_gravity="center"
+            android:layout_marginBottom="20dp"
+            android:src="@drawable/rose" />
+
+        <!-- Flower Name -->
+        <TextView
+            android:id="@+id/flowerName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Rose"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:layout_gravity="center"
+            android:layout_marginBottom="6dp" />
+
+        <!-- Flower Description -->
+        <TextView
+            android:id="@+id/flowerDescription"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Symbol of love, passion, and beauty."
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Micro Action -->
+        <TextView
+            android:id="@+id/microAction"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Share something meaningful with someone today."
+            android:textSize="16sp"
+            android:layout_marginBottom="20dp"
+            android:textStyle="italic"/>
+
+        <!-- Journal Entry Title -->
+        <TextView
+            android:text="Your Journal:"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="10dp"/>
+
+        <!-- Journal Text -->
+        <TextView
+            android:id="@+id/journalEntry"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Your written thoughts show up here…"
+            android:textSize="14sp"
+            android:padding="12dp"
+            android:background="#EFEFEF"/>
+
+    </LinearLayout>
+</ScrollView>
+
