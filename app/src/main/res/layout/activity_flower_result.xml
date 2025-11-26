@@ -1,73 +1,175 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="24dp"
-    android:background="@color/white">
+    android:background="#F9F5EC"
+    android:padding="24dp">
 
-    <LinearLayout
-        android:orientation="vertical"
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="match_parent"
+        android:scrollbars="none">
 
-        <!-- Flower Image -->
-        <ImageView
-            android:id="@+id/flowerImage"
-            android:layout_width="200dp"
-            android:layout_height="200dp"
-            android:layout_gravity="center"
-            android:layout_marginBottom="20dp"
-            android:src="@drawable/rose" />
-
-        <!-- Flower Name -->
-        <TextView
-            android:id="@+id/flowerName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Rose"
-            android:textSize="26sp"
-            android:textStyle="bold"
-            android:layout_gravity="center"
-            android:layout_marginBottom="6dp" />
-
-        <!-- Flower Description -->
-        <TextView
-            android:id="@+id/flowerDescription"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Symbol of love, passion, and beauty."
-            android:textSize="16sp"
-            android:layout_marginBottom="16dp"/>
+            android:orientation="vertical"
+            android:paddingBottom="48dp"
+            android:gravity="center_horizontal">
 
-        <!-- Micro Action -->
-        <TextView
-            android:id="@+id/microAction"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Share something meaningful with someone today."
-            android:textSize="16sp"
-            android:layout_marginBottom="20dp"
-            android:textStyle="italic"/>
+            <!-- Title -->
+            <TextView
+                android:id="@+id/tvResultTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:text="Your Daily Bloom"
+                android:textColor="#4A4A4A"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium" />
 
-        <!-- Journal Entry Title -->
-        <TextView
-            android:text="Your Journal:"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="10dp"/>
+            <!-- Flower Image -->
+            <ImageView
+                android:id="@+id/flowerImage"
+                android:layout_width="160dp"
+                android:layout_height="160dp"
+                android:layout_marginBottom="16dp"
+                android:scaleType="centerCrop"
+                tools:src="@drawable/rose"
+                android:contentDescription="Flower Image Result" />
 
-        <!-- Journal Text -->
-        <TextView
-            android:id="@+id/journalEntry"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Your written thoughts show up here…"
-            android:textSize="14sp"
-            android:padding="12dp"
-            android:background="#EFEFEF"/>
+            <!-- Flower Name -->
+            <TextView
+                android:id="@+id/flowerName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Rose"
+                android:textColor="#3D3D3D"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
 
-    </LinearLayout>
-</ScrollView>
+            <!-- Flower Description / AI Category Summary -->
+            <TextView
+                android:id="@+id/flowerDescription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="Your Bloomix Analysis: Emotional Profile: POSITIVE"
+                android:textColor="#757575"
+                android:textSize="16sp"
+                android:layout_marginBottom="24dp" />
 
+            <!-- AI/ML Result Box (New Section) -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="#FFFFFF"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <!-- Sentiment (The ID that was causing the error) -->
+                    <TextView
+                        android:id="@+id/tvSentiment"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Journal Sentiment: POSITIVE"
+                        android:textColor="#00796B"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+
+                    <!-- Mood Category -->
+                    <TextView
+                        android:id="@+id/tvCategory"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Overall Mood: High-Energy Positive Focus"
+                        android:textColor="#555555"
+                        android:textSize="14sp"
+                        android:layout_marginBottom="12dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#EEEEEE"
+                        android:layout_marginBottom="12dp" />
+
+                    <!-- Reflection Prompt -->
+                    <TextView
+                        android:id="@+id/tvReflectionPrompt"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Reflection Prompt: How are you truly feeling right now?"
+                        android:textColor="#3D3D3D"
+                        android:textSize="16sp"
+                        android:textStyle="italic"
+                        android:layout_marginBottom="16dp" />
+
+                    <!-- Micro Action -->
+                    <TextView
+                        android:id="@+id/microAction"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Micro-Action: Be honest with yourself about how you feel right now."
+                        android:textColor="#C7785F"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:drawablePadding="8dp"
+                        android:drawableStart="@android:drawable/ic_menu_today"
+                        tools:ignore="RtlSymmetry" />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+
+            <!-- Journal Entry Section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Your Journal Entry"
+                android:textColor="#4A4A4A"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/journalEntry"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/rounded_corner_background"
+                android:padding="16dp"
+                android:text="Today I felt incredibly loved and excited because my friend Bloomix told me I did a great job fixing the bug. It was a wonderful day!"
+                android:textColor="#616161"
+                android:textSize="14sp"
+                android:minHeight="100dp" />
+
+            <!-- Back Button -->
+            <Button
+                android:id="@+id/btnBack"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Done"
+                android:layout_marginTop="32dp"
+                android:paddingStart="24dp"
+                android:paddingEnd="24dp"
+                android:backgroundTint="#C7785F"
+                android:textColor="#FFFFFF" />
+
+        </LinearLayout>
+    </ScrollView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
