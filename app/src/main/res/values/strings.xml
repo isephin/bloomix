@@ -1,3 +1,33 @@
 <resources>
-    <string name="app_name">bloomix</string>
+    <string name="app_name">Emotion Input App</string>
+
+    <string name="loved_name">Loved</string>
+    <string name="annoyed_name">Annoyed</string>
+    <string name="angry_name">Angry</string>
+    <string name="stressed_name">Stressed</string>
+    <string name="happy_name">Happy</string>
+    <string name="confused_name">Confused</string>
+    <string name="excited_name">Excited</string>
+    <string name="bored_name">Bored</string>
+    <string name="calm_name">Calm</string>
+    <string name="sad_name">Sad</string>
+    <string name="shocked_name">Shocked</string>
+    <string name="tired_name">Tired</string>
+
+    <string name="loved_desc">Icon representing the Loved emotion</string>
+    <string name="annoyed_desc">Icon representing the Annoyed emotion</string>
+    <string name="angry_desc">Icon representing the Angry emotion</string>
+    <string name="stressed_desc">Icon representing the Stressed emotion</string>
+    <string name="happy_desc">Icon representing the Happy emotion</string>
+    <string name="confused_desc">Icon representing the Confused emotion</string>
+    <string name="excited_desc">Icon representing the Excited emotion</string>
+    <string name="bored_desc">Icon representing the Bored emotion</string>
+    <string name="calm_desc">Icon representing the Calm emotion</string>
+    <string name="sad_desc">Icon representing the Sad emotion</string>
+    <string name="shocked_desc">Icon representing the Shocked emotion</string>
+    <string name="tired_desc">Icon representing the Tired emotion</string>
+
+    <string name="btn_mix_emotions">Mixing of Emotions</string>
+    <string name="btn_desc_back">Return to the previous page</string>
+
 </resources>
