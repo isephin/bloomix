@@ -19,6 +19,7 @@
         android:layout_height="wrap_content"
         android:text="Happy"
         android:textSize="12sp"
-        android:textColor="#000000" />
+        android:fontFamily="@font/gamja_flower"
+        android:textColor="@color/dark_grey" />
 
 </LinearLayout>

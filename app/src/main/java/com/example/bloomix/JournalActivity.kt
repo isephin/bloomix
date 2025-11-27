@@ -32,7 +32,7 @@ class JournalActivity : AppCompatActivity() {
         dialog.setContentView(R.layout.dialog_let_it_bloom)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
-        dialog.findViewById<ImageView>(R.id.btnClosePopup).setOnClickListener {
+        dialog.findViewById<Button>(R.id.btnClosePopup).setOnClickListener {
             dialog.dismiss()
         }
 
