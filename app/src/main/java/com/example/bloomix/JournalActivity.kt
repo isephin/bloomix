@@ -47,39 +47,36 @@ class JournalActivity : AppCompatActivity() {
     private fun openFlowerResultScreen() {
         val journalText = findViewById<EditText>(R.id.etJournal).text.toString()
 
-        // 1. Call the ML Processor to get the full analysis
+        // 1. Run the AI Analysis (Using your updated MLProcessor)
         val analysisResult = MLProcessor.processEntry(journalText, selectedEmotions)
 
-        // 2. Extract the micro-action description from the analysis result
-        val microActionDesc = analysisResult.suggestedMicroActions.firstOrNull()?.description
-            ?: FlowerData.flowers[chosenFlowerKey]?.microAction
-            ?: "Take a mindful pause today."
-
-        // Save to SharedPreferences
+        // 2. Save Data
         selectedDateKey?.let { dateKey ->
             val prefs = getSharedPreferences("journal_data", MODE_PRIVATE)
             prefs.edit().apply {
                 putString("flower_$dateKey", chosenFlowerKey)
                 putString("journal_$dateKey", journalText)
-                // Save AI analysis results for later retrieval (optional, but good practice)
                 putString("sentiment_$dateKey", analysisResult.sentiment.name)
-                putString("category_$dateKey", analysisResult.overallMoodCategory)
-                putString("reflection_$dateKey", analysisResult.reflectionPrompt)
-                putString("micro_action_desc_$dateKey", microActionDesc)
             }.apply()
         }
 
-        // START FlowerResultActivity
+        // 3. Prepare Intent
         val intent = Intent(this, FlowerResultActivity::class.java)
-        intent.putExtra("selected", selectedEmotions)
-        intent.putExtra("journal_text", journalText) // Changed to "journal_text" to match previous convention
-        intent.putExtra("flower_key", chosenFlowerKey)
 
-        // PASS AI ANALYSIS RESULTS
+        // --- FIX: Use "journal_text" to match FlowerResultActivity ---
+        intent.putExtra("journal_text", journalText)
+        intent.putExtra("flower_key", chosenFlowerKey)
+        intent.putStringArrayListExtra("selected", selectedEmotions)
+
+        // 4. Pass Analysis Results as Strings (Safe & Simple)
         intent.putExtra("sentiment", analysisResult.sentiment.name)
         intent.putExtra("category", analysisResult.overallMoodCategory)
         intent.putExtra("reflection", analysisResult.reflectionPrompt)
-        intent.putExtra("micro_action_desc", microActionDesc) // Pass the AI-suggested action
+
+        // Safely get the first micro-action description
+        val microAction = analysisResult.suggestedMicroActions.firstOrNull()?.description
+            ?: "Take a mindful pause today."
+        intent.putExtra("micro_action_desc", microAction)
 
         startActivity(intent)
         finish()

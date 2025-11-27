@@ -112,9 +112,28 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
 
 
     override fun onDayClicked(dateKey: String) {
-        val intent = Intent(this, EmotionActivity::class.java)
-        intent.putExtra("selectedDate", dateKey)
-        startActivityForResult(intent, REQUEST_EMOTION)
+        // 1. Check if we already have data for this day
+        val prefs = getSharedPreferences("journal_data", MODE_PRIVATE)
+        val existingFlower = prefs.getString("flower_$dateKey", null)
+
+        if (existingFlower != null) {
+            // 2. ENTRY EXISTS: Load saved data and go directly to results
+            val journalText = prefs.getString("journal_$dateKey", "")
+            val sentiment = prefs.getString("sentiment_$dateKey", "NEUTRAL")
+
+            val intent = Intent(this, FlowerResultActivity::class.java)
+            intent.putExtra("flower_key", existingFlower)
+            intent.putExtra("journal_text", journalText)
+            intent.putExtra("sentiment", sentiment)
+            // Note: Category and Reflection will show defaults because we didn't save them earlier.
+
+            startActivity(intent)
+        } else {
+            // 3. NO ENTRY: Start a new journal entry
+            val intent = Intent(this, EmotionActivity::class.java)
+            intent.putExtra("selectedDate", dateKey)
+            startActivityForResult(intent, REQUEST_EMOTION)
+        }
     }
 
 
@@ -135,4 +154,3 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
         )[monthIndex]
     }
 }
-

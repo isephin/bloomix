@@ -1,5 +1,6 @@
 package com.example.bloomix
 
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.PorterDuff
@@ -19,7 +20,6 @@ class EmotionActivity : AppCompatActivity() {
         "calm","shocked","annoyed","stressed"
     )
 
-    // Fixed: this defines the flower KEY used by FlowerData
     private val flowerMap = mapOf(
         "happy" to "marigold",
         "sad" to "bluebell",
@@ -36,11 +36,17 @@ class EmotionActivity : AppCompatActivity() {
     )
 
     private val viewIdToEmotion = mutableMapOf<Int, String>()
-    private val selected = linkedSetOf<String>() // keeps emotion order
+    // Changed to ArrayList to explicitly support duplicates and order
+    private val selected = ArrayList<String>()
+    private var selectedDateKey: String? = null
+
+    private val REQUEST_CODE_SHARED = 100
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_emotion)
+
+        selectedDateKey = intent.getStringExtra("selectedDate")
 
         val selectedContainer = findViewById<LinearLayout>(R.id.selectedContainer)
         val btnShared = findViewById<Button>(R.id.btnShared)
@@ -57,47 +63,83 @@ class EmotionActivity : AppCompatActivity() {
             iv.alpha = 1f
 
             iv.setOnClickListener {
-                toggleEmotionSelection(iv, emo, selectedContainer)
+                // CHANGED: Always ADD, never toggle off from the main icon
+                addEmotion(iv, emo, selectedContainer)
             }
         }
 
         btnShared.setOnClickListener {
             val intent = Intent(this, SharedEmotionsActivity::class.java)
-            intent.putStringArrayListExtra("selected", ArrayList(selected))
-            startActivity(intent)
+            intent.putStringArrayListExtra("selected", selected)
+            startActivityForResult(intent, REQUEST_CODE_SHARED)
         }
 
-        // FIXED: This now sends exactly what JournalActivity expects
         btnJournal.setOnClickListener {
             val chosenFlowerKey = determineFlowerKey()
             val intent = Intent(this, JournalActivity::class.java)
 
-            intent.putStringArrayListExtra("selected_emotions", ArrayList(selected))
+            intent.putStringArrayListExtra("selected_emotions", selected)
             intent.putExtra("flower_key", chosenFlowerKey)
+            intent.putExtra("selectedDate", selectedDateKey)
 
             startActivity(intent)
         }
     }
 
-    private fun toggleEmotionSelection(
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_CODE_SHARED && resultCode == Activity.RESULT_OK) {
+            val updatedList = data?.getStringArrayListExtra("updated_selection")
+            if (updatedList != null) {
+                selected.clear()
+                val selectedContainer = findViewById<LinearLayout>(R.id.selectedContainer)
+                selectedContainer.removeAllViews()
+
+                // Reset all icons visually first
+                viewIdToEmotion.forEach { (id, _) ->
+                    val iv = findViewById<ImageView>(id)
+                    iv.clearColorFilter()
+                    iv.alpha = 1f
+                }
+
+                // Re-apply selections
+                updatedList.forEach { emo ->
+                    // Find the view to update its visual state
+                    val resId = resources.getIdentifier("em_$emo", "id", packageName)
+                    val iv = if (resId != 0) findViewById<ImageView>(resId) else null
+
+                    // Add back to internal list and UI
+                    selected.add(emo)
+                    addChipFor(emo, selectedContainer)
+
+                    // Update visual state (highlight if present)
+                    iv?.setColorFilter(Color.parseColor("#99FFFFFF"), PorterDuff.Mode.SRC_ATOP)
+                    iv?.alpha = 0.85f
+                }
+
+                val selectedBar = findViewById<LinearLayout>(R.id.selectedBar)
+                selectedBar.visibility = if (selected.isNotEmpty()) View.VISIBLE else View.GONE
+            }
+        }
+    }
+
+    private fun addEmotion(
         iv: ImageView,
         emotion: String,
         selectedContainer: LinearLayout
     ) {
-        if (selected.contains(emotion)) {
-            selected.remove(emotion)
-            iv.clearColorFilter()
-            iv.alpha = 1f
-            removeChipFor(emotion, selectedContainer)
-        } else {
-            selected.add(emotion)
-            iv.setColorFilter(Color.parseColor("#99FFFFFF"), PorterDuff.Mode.SRC_ATOP)
-            iv.alpha = 0.85f
-            addChipFor(emotion, selectedContainer)
-        }
+        // 1. Add to list (duplicates allowed now!)
+        selected.add(emotion)
+
+        // 2. Visually highlight the big icon (it stays highlighted as long as count > 0)
+        iv.setColorFilter(Color.parseColor("#99FFFFFF"), PorterDuff.Mode.SRC_ATOP)
+        iv.alpha = 0.85f
+
+        // 3. Add the chip to the bottom bar
+        addChipFor(emotion, selectedContainer)
 
         val selectedBar = findViewById<LinearLayout>(R.id.selectedBar)
-        selectedBar.visibility = if (selected.isNotEmpty()) View.VISIBLE else View.GONE
+        selectedBar.visibility = View.VISIBLE
     }
 
     private fun addChipFor(emotion: String, selectedContainer: LinearLayout) {
@@ -108,18 +150,28 @@ class EmotionActivity : AppCompatActivity() {
         val drawRes = resources.getIdentifier("${emotion}_chip", "drawable", packageName)
         if (drawRes != 0) img.setImageResource(drawRes)
 
-        txt.text = emotion.replaceFirstChar { it.uppercase() }
+        txt.text = emotion.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+
+        // We use a unique tag for the view object itself, but since we have duplicates,
+        // we can't use the tag to find *specific* chips easily later.
+        // We rely on the object reference in the OnClickListener.
         chip.tag = "chip_$emotion"
 
         chip.setOnClickListener {
-            selected.remove(emotion)
-            val ivId = resources.getIdentifier("em_$emotion", "id", packageName)
-            if (ivId != 0) {
-                val iv = findViewById<ImageView>(ivId)
-                iv.clearColorFilter()
-                iv.alpha = 1f
-            }
+            // REMOVAL LOGIC: Only remove THIS specific instance
+            selected.remove(emotion) // Removes the first occurrence of this string
             selectedContainer.removeView(chip)
+
+            // Check if we need to turn off the highlight on the main icon
+            // Only turn off if the list NO LONGER contains this emotion
+            if (!selected.contains(emotion)) {
+                val ivId = resources.getIdentifier("em_$emotion", "id", packageName)
+                if (ivId != 0) {
+                    val iv = findViewById<ImageView>(ivId)
+                    iv.clearColorFilter()
+                    iv.alpha = 1f
+                }
+            }
 
             val selectedBar = findViewById<LinearLayout>(R.id.selectedBar)
             selectedBar.visibility = if (selected.isNotEmpty()) View.VISIBLE else View.GONE
@@ -128,17 +180,14 @@ class EmotionActivity : AppCompatActivity() {
         selectedContainer.addView(chip)
     }
 
-    private fun removeChipFor(emotion: String, selectedContainer: LinearLayout) {
-        val tag = "chip_$emotion"
-        selectedContainer.findViewWithTag<View>(tag)?.let {
-            selectedContainer.removeView(it)
-        }
-    }
-
+    // removeChipFor is no longer needed since we remove views directly in the OnClickListener
+    // within addChipFor.
 
     private fun determineFlowerKey(): String {
         if (selected.isEmpty()) return "white_daisy"
-        val main = selected.first() // first selected emotion
-        return flowerMap[main] ?: "white_daisy"
+
+        // Find the most frequent emotion
+        val mostFrequent = selected.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+        return flowerMap[mostFrequent] ?: "white_daisy"
     }
 }

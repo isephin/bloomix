@@ -2,69 +2,110 @@ package com.example.bloomix
 
 /**
  * MLProcessor: Simulates the machine learning analysis for Bloomix.
- *
- * In a real application, the functions below would utilize:
- * 1. Naïve Bayes/TensorFlow Lite model for Sentiment Analysis.
- * 2. SVM/TensorFlow Lite model for Mood Category Classification.
- * 3. Gemini API for generating the sophisticated Reflection Prompt and Micro Actions.
+ * * UPDATE: Improved "Mixed State" handling. If both positive and negative emotions are present,
+ * the system biases towards NEUTRAL (Mixed) rather than forcing a hard Positive/Negative label.
  */
 object MLProcessor {
 
+    // Define lists for scoring
+    private val positiveKeywords = setOf("happy", "joy", "great", "love", "excited", "calm", "good", "blessed", "wonderful")
+    private val negativeKeywords = setOf("sad", "tired", "angry", "stressed", "bored", "confused", "annoyed", "bad", "terrible", "shocked")
+
     /**
-     * 1. Simulates Naïve Bayes Sentiment Analysis.
-     * In a real app, this would tokenise the text and run it through a trained NB model.
+     * 1. Weighted Sentiment Analysis
+     * Calculates a score based on BOTH the journal text AND the selected emotion chips.
      */
-    private fun analyzeSentiment(text: String): Sentiment {
+    private fun analyzeSentiment(text: String, selectedEmotions: List<String>): Sentiment {
+        var score = 0
         val lowerText = text.lowercase()
-        // Simple heuristic stub for demonstration:
-        return when {
-            lowerText.contains("happy") || lowerText.contains("joy") || lowerText.contains("great") || lowerText.contains("love") -> Sentiment.POSITIVE
-            lowerText.contains("sad") || lowerText.contains("tired") || lowerText.contains("angry") || lowerText.contains("stressed") -> Sentiment.NEGATIVE
-            else -> Sentiment.NEUTRAL
+
+        // 1. Score the Text
+        val words = lowerText.split("\\s+".toRegex())
+        for (word in words) {
+            if (word in positiveKeywords) score += 1
+            if (word in negativeKeywords) score -= 1
+        }
+
+        // 2. Score the Selected Emotions
+        var hasPositive = false
+        var hasNegative = false
+
+        for (emotion in selectedEmotions) {
+            when (emotion.lowercase()) {
+                "happy", "excited", "loved", "calm", "zinnia", "marigold", "rose", "lotus" -> {
+                    score += 2
+                    hasPositive = true
+                }
+                "sad", "angry", "tired", "stressed", "annoyed", "bored", "confused", "shocked" -> {
+                    score -= 2
+                    hasNegative = true
+                }
+            }
+        }
+
+        // 3. Determine Final Sentiment with "Mixed State" Logic
+        val isMixed = hasPositive && hasNegative
+
+        return if (isMixed) {
+            // If emotions are mixed, we widen the threshold.
+            // It takes a much stronger score to override the "Complexity" and label it purely Positive or Negative.
+            when {
+                score > 5 -> Sentiment.POSITIVE // Overwhelmingly positive despite some negative
+                score < -5 -> Sentiment.NEGATIVE // Overwhelmingly negative despite some positive
+                else -> Sentiment.NEUTRAL // "Mixed" or "Complex" falls here
+            }
+        } else {
+            // Standard thresholds for non-mixed states
+            when {
+                score > 2 -> Sentiment.POSITIVE
+                score < -2 -> Sentiment.NEGATIVE
+                else -> Sentiment.NEUTRAL
+            }
         }
     }
 
     /**
-     * 2. Simulates SVM Mood Category Classification.
-     * In a real app, this would use a trained SVM model on a combination of selected moods and sentiment.
+     * 2. Mood Category Classification
      */
     private fun classifyOverallMoodCategory(selectedEmotions: List<String>, sentiment: Sentiment): String {
         val hasPositive = selectedEmotions.any { it in listOf("happy", "excited", "loved", "calm") }
-        val hasNegative = selectedEmotions.any { it in listOf("sad", "angry", "tired", "bored", "confused", "annoyed", "stressed", "shocked") }
+        val hasNegative = selectedEmotions.any { it in listOf("sad", "angry", "tired", "stressed", "annoyed", "bored") }
 
         return when {
-            hasPositive && !hasNegative -> "High-Energy Positive Focus"
-            hasPositive && hasNegative -> "Complex Emotional Landscape"
-            !hasPositive && hasNegative -> when (sentiment) {
-                Sentiment.NEGATIVE -> "Low-Energy Challenging Focus"
-                Sentiment.NEUTRAL -> "Contemplative & Unsettled"
-                Sentiment.POSITIVE -> "High-Energy Positive Focus" // Should not happen with negative emotions selected
-            }
-            else -> "Neutral Observation"
+            hasPositive && hasNegative -> "Complex Emotional Landscape" // Mixed inputs
+            sentiment == Sentiment.POSITIVE -> "High-Energy Positive Focus"
+            sentiment == Sentiment.NEGATIVE -> "Processing Difficult Emotions"
+            else -> "Balanced and Contemplative"
         }
     }
 
     /**
-     * 3. Simulates LLM Reflection Prompt and Micro-Action Generation.
-     * In a real app, this would use the Gemini API to generate the text.
+     * 3. Reflection Generation
      */
     private fun generateReflection(sentiment: Sentiment, category: String, selectedEmotions: List<String>): Pair<String, String> {
-        val emotionsList = selectedEmotions.joinToString(", ")
+        val uniqueEmotions = selectedEmotions.distinct().joinToString(", ") { it.replaceFirstChar { char -> char.uppercase() } }
 
         val prompt: String
         val microAction: String
 
+        // For "Mixed" states (Neutral sentiment but with Complex category), we give a specific prompt
+        if (category == "Complex Emotional Landscape") {
+            prompt = "You're navigating a mix of $uniqueEmotions. What is one way you can honor both sides of your experience today?"
+            microAction = "Sit for 2 minutes and simply breathe, acknowledging all your feelings without judgment."
+            return Pair(prompt, microAction)
+        }
+
         when (sentiment) {
             Sentiment.POSITIVE -> {
-                prompt = "What is the single best thing that contributed to your ${emotionsList} today, and how can you repeat it tomorrow?"
-                microAction = "Spend 5 minutes reflecting on your success and celebrating it."
+                prompt = "What specifically about feeling $uniqueEmotions made today stand out?"
+                microAction = "Write down one moment of joy from today and keep it nearby."
             }
             Sentiment.NEGATIVE -> {
-                prompt = "What is the smallest step you can take tomorrow to address the root cause of your $emotionsList?"
+                prompt = "You're holding a lot ($uniqueEmotions). What is one thing you can let go of tonight?"
                 microAction = "Practice 4-7-8 breathing for one minute to reset your nervous system."
             }
             Sentiment.NEUTRAL -> {
-                prompt = "If you could pick one word to describe the underlying theme of this entry, what would it be?"
+                prompt = "With a sense of $uniqueEmotions, what does 'balance' look like for you right now?"
                 microAction = "Find a quiet spot and observe your surroundings for 5 minutes."
             }
         }
@@ -72,25 +113,18 @@ object MLProcessor {
     }
 
     /**
-     * Main function to process the entry and return the complete analysis result.
+     * Main function to process the entry.
      */
     fun processEntry(journalText: String, selectedEmotions: List<String>): AnalysisResult {
-        // 1. Sentiment Analysis (Naïve Bayes Stub)
-        val sentiment = analyzeSentiment(journalText)
-
-        // 2. Mood Classification (SVM Stub)
+        val sentiment = analyzeSentiment(journalText, selectedEmotions)
         val category = classifyOverallMoodCategory(selectedEmotions, sentiment)
-
-        // 3. Reflection Generation (LLM Stub)
         val (prompt, microActionDesc) = generateReflection(sentiment, category, selectedEmotions)
 
-        // 4. Create the final result object
         return AnalysisResult(
             sentiment = sentiment,
             overallMoodCategory = category,
             reflectionPrompt = prompt,
             suggestedMicroActions = listOf(MicroAction("General", microActionDesc))
-            // flowerPetalData removed as it is not a property of AnalysisResult
         )
     }
 }
