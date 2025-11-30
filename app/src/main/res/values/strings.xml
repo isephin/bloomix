@@ -4,6 +4,9 @@
     <!-- Calendar Navigation -->
     <string name="previous_month">Previous Month</string>
     <string name="next_month">Next Month</string>
+    <string name="past_entries">See Past Journal Entries</string>
+    <string name="statistics">Statistics</string>
+    <string name="settings">Settings"</string>
 
     <!-- Month Names (optional but recommended for dynamic calendar later) -->
     <string name="january">January</string>

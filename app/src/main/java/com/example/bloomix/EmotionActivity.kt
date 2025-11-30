@@ -129,7 +129,7 @@ class EmotionActivity : AppCompatActivity() {
         // 3. 2. UPDATED: Refresh the entire bottom bar (unique chips + counts)
         refreshSelectedChips()
 
-        selectedBar.visibility = View.VISIBLE
+        // selectedBar.visibility = View.VISIBLE
     }
 
     // Function to update the emotion count in ll_shared_emotions
@@ -187,15 +187,12 @@ class EmotionActivity : AppCompatActivity() {
                         iv.alpha = 1f
                     }
                 }
-
-                // COMMENTED OUT: Removed the line that was forcing the bar visible on chip removal.
-                // selectedBar.visibility = if (selected.isNotEmpty()) View.VISIBLE else View.GONE
             }
 
             selectedContainer.addView(chip)
         }
 
-        // 5. Update the main counter and bar visibility (only sets to GONE when empty)
+        // 5. Update the main counter and bar visibility
         updateSelectedBarCount()
     }
 

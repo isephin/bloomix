@@ -8,51 +8,191 @@
     android:padding="16dp"
     tools:context=".CalendarActivity">
 
+    <LinearLayout
+        android:id="@+id/topNavBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="start"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="10dp">
+
+        <ImageView
+            android:id="@+id/iconTulip"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/tulip"
+            android:contentDescription="@string/past_entries"/>
+
+        <ImageView
+            android:id="@+id/iconBarChart"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/bar_chart"
+            android:layout_marginStart="16dp"
+            android:contentDescription="@string/statistics"/>
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1"/>
+
+        <ImageView
+            android:id="@+id/iconSettings"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/settings"
+            android:contentDescription="@string/settings"/>
+    </LinearLayout>
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideLineTop"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.25" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideLineBottom"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.75" />
+
     <ImageView
         android:id="@+id/btnPrev"
         android:layout_width="32dp"
         android:layout_height="32dp"
-        android:src="@drawable/ic_back"
+        android:src="@drawable/arrow_calendar"
         android:contentDescription="@string/previous_month"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:layout_marginTop="20dp" />
+        app:layout_constraintTop_toTopOf="@id/guideLineTop"
+        app:layout_constraintBottom_toTopOf="@id/dayHeaderLayout"
+        app:layout_constraintVertical_bias="0.5" />
 
     <TextView
         android:id="@+id/tvMonthTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="November 2025"
-        android:textSize="20sp"
+        android:text="November"
+        android:textSize="30sp"
         android:textStyle="bold"
-        app:layout_constraintTop_toTopOf="parent"
+        android:textColor="@color/dark_grey"
+        android:fontFamily="@font/gamja_flower"
         app:layout_constraintStart_toEndOf="@id/btnPrev"
         app:layout_constraintEnd_toStartOf="@id/btnNext"
+        app:layout_constraintTop_toTopOf="@id/guideLineTop"
+        app:layout_constraintBottom_toTopOf="@id/dayHeaderLayout"
+        app:layout_constraintVertical_bias="0.5"
         android:gravity="center"/>
 
     <ImageView
         android:id="@+id/btnNext"
         android:layout_width="32dp"
         android:layout_height="32dp"
-        android:src="@drawable/ic_back"
+        android:src="@drawable/arrow_calendar"
         android:rotation="180"
         android:contentDescription="@string/next_month"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:layout_marginTop="20dp" />
+        app:layout_constraintTop_toTopOf="@id/guideLineTop"
+        app:layout_constraintBottom_toTopOf="@id/dayHeaderLayout"
+        app:layout_constraintVertical_bias="0.5" />
+
+    <LinearLayout
+        android:id="@+id/dayHeaderLayout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="7"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toBottomOf="@id/tvMonthTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textSize="14sp"
+            android:textColor="@color/dark_grey"
+            android:fontFamily="@font/gamja_flower"
+            android:textStyle="bold"
+            android:text="Sun"/>
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textSize="14sp"
+            android:textColor="@color/dark_grey"
+            android:fontFamily="@font/gamja_flower"
+            android:textStyle="bold"
+            android:text="Mon"/>
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textSize="14sp"
+            android:textColor="@color/dark_grey"
+            android:fontFamily="@font/gamja_flower"
+            android:textStyle="bold"
+            android:text="Tue"/>
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textSize="14sp"
+            android:textColor="@color/dark_grey"
+            android:fontFamily="@font/gamja_flower"
+            android:textStyle="bold"
+            android:text="Wed"/>
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textSize="14sp"
+            android:textColor="@color/dark_grey"
+            android:fontFamily="@font/gamja_flower"
+            android:textStyle="bold"
+            android:text="Thu"/>
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textSize="14sp"
+            android:textColor="@color/dark_grey"
+            android:fontFamily="@font/gamja_flower"
+            android:textStyle="bold"
+            android:text="Fri"/>
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textSize="14sp"
+            android:textColor="@color/dark_grey"
+            android:fontFamily="@font/gamja_flower"
+            android:textStyle="bold"
+            android:text="Sat"/>
+
+    </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerViewCalendar"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:padding="12dp"
-        app:layout_constraintTop_toBottomOf="@id/tvMonthTitle"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/dayHeaderLayout"
+        app:layout_constraintBottom_toTopOf="@id/guideLineBottom"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         tools:listitem="@layout/item_day"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
-
-
-
