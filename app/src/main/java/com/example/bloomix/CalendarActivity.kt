@@ -3,12 +3,16 @@ package com.example.bloomix
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Locale
 import kotlin.collections.LinkedHashMap
 
 class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
@@ -44,6 +48,12 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
 
         findViewById<ImageView>(R.id.btnNext).setOnClickListener {
             changeMonth(1)
+        }
+
+        // --- NEW: History Button Click Listener ---
+        findViewById<Button>(R.id.btnHistory).setOnClickListener {
+            val intent = Intent(this, HistoryActivity::class.java)
+            startActivity(intent)
         }
     }
 
@@ -112,27 +122,71 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
 
 
     override fun onDayClicked(dateKey: String) {
-        // 1. Check if we already have data for this day
+        // Block Future Dates
+        if (isFutureDate(dateKey)) {
+            Toast.makeText(this, "You cannot journal for future dates!", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val prefs = getSharedPreferences("journal_data", MODE_PRIVATE)
         val existingFlower = prefs.getString("flower_$dateKey", null)
 
         if (existingFlower != null) {
-            // 2. ENTRY EXISTS: Load saved data and go directly to results
+            // ENTRY EXISTS: Load ALL saved data
             val journalText = prefs.getString("journal_$dateKey", "")
             val sentiment = prefs.getString("sentiment_$dateKey", "NEUTRAL")
+            val category = prefs.getString("category_$dateKey", "Complex Emotional Landscape")
+            val reflection = prefs.getString("reflection_$dateKey", "Reflect on your day.")
+            val microAction = prefs.getString("micro_action_desc_$dateKey", "Take a moment to breathe.")
+
+            // Load and parse emotion list
+            val emotionsStr = prefs.getString("emotions_$dateKey", "")
+            val emotionsList = if (!emotionsStr.isNullOrEmpty()) {
+                ArrayList(emotionsStr.split(","))
+            } else {
+                arrayListOf<String>()
+            }
 
             val intent = Intent(this, FlowerResultActivity::class.java)
+            intent.putExtra("selectedDate", dateKey)
             intent.putExtra("flower_key", existingFlower)
             intent.putExtra("journal_text", journalText)
             intent.putExtra("sentiment", sentiment)
-            // Note: Category and Reflection will show defaults because we didn't save them earlier.
+
+            // Pass the restored AI data
+            intent.putExtra("category", category)
+            intent.putExtra("reflection", reflection)
+            intent.putExtra("micro_action_desc", microAction)
+            intent.putStringArrayListExtra("selected", emotionsList)
 
             startActivity(intent)
         } else {
-            // 3. NO ENTRY: Start a new journal entry
+            // NO ENTRY: Start a new journal entry
             val intent = Intent(this, EmotionActivity::class.java)
             intent.putExtra("selectedDate", dateKey)
             startActivityForResult(intent, REQUEST_EMOTION)
+        }
+    }
+
+    private fun isFutureDate(dateKey: String): Boolean {
+        return try {
+            val sdf = SimpleDateFormat("yyyy-M-d", Locale.getDefault())
+            val selectedDate = sdf.parse(dateKey) ?: return false
+
+            val selectedCal = Calendar.getInstance()
+            selectedCal.time = selectedDate
+
+            val today = Calendar.getInstance()
+
+            if (selectedCal.get(Calendar.YEAR) > today.get(Calendar.YEAR)) return true
+            if (selectedCal.get(Calendar.YEAR) < today.get(Calendar.YEAR)) return false
+
+            if (selectedCal.get(Calendar.MONTH) > today.get(Calendar.MONTH)) return true
+            if (selectedCal.get(Calendar.MONTH) < today.get(Calendar.MONTH)) return false
+
+            selectedCal.get(Calendar.DAY_OF_MONTH) > today.get(Calendar.DAY_OF_MONTH)
+        } catch (e: Exception) {
+            false
         }
     }
 

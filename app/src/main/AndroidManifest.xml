@@ -31,9 +31,7 @@
         <!-- Newly added activities -->
         <activity android:name=".JournalActivity" android:exported="true" />
         <activity android:name=".SharedEmotionsActivity" android:exported="true" />
-
-        <!-- Your Flower screen -->
-        <activity android:name=".FlowerActivity" android:exported="true" />
+        <activity android:name=".HistoryActivity" />
 
         <activity android:name=".FlowerResultActivity" android:exported="true" />
 
