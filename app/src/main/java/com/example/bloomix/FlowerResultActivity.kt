@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.view.Gravity
 import android.view.Window
 import android.widget.ImageButton
 import android.widget.ImageView
@@ -13,27 +14,19 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.res.ResourcesCompat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 class FlowerResultActivity : AppCompatActivity() {
 
-    // Define a map for emotion colors using the hex codes from the image (lowercase keys)
     private val emotionColors = mapOf(
-        "loved" to "#FF88AA",       // Pink
-        "annoyed" to "#FF6666",     // Reddish Pink
-        "angry" to "#FF3300",       // Bright Red/Orange
-        "stressed" to "#FFAA66",    // Orange
-        "happy" to "#FFDD66",       // Yellowish Gold
-        "confused" to "#FFFF66",    // Bright Yellow
-        "excited" to "#66FF66",     // Bright Green
-        "bored" to "#66CCCC",       // Teal/Light Cyan
-        "calm" to "#66CCCC",        // Teal/Light Cyan
-        "sad" to "#3366FF",         // Blue
-        "shocked" to "#6633CC",     // Violet/Purple
-        "tired" to "#AAAAAA",       // Gray
-        "neutral" to "#A9A9A9"      // General fallback
+        "loved" to "#FF88AA", "annoyed" to "#FF6666", "angry" to "#FF3300",
+        "stressed" to "#FFAA66", "happy" to "#FFDD66", "confused" to "#FFFF66",
+        "excited" to "#66FF66", "bored" to "#66CCCC", "calm" to "#66CCCC",
+        "sad" to "#3366FF", "shocked" to "#6633CC", "tired" to "#AAAAAA",
+        "neutral" to "#A9A9A9"
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,6 +39,9 @@ class FlowerResultActivity : AppCompatActivity() {
         val selectedEmotions = intent.getStringArrayListExtra("selected") ?: arrayListOf()
         val dateKey = intent.getStringExtra("selectedDate")
 
+        // Check if we came from a new entry or history
+        val isNewEntry = intent.getBooleanExtra("is_new_entry", false)
+
         val sentiment = intent.getStringExtra("sentiment") ?: "NEUTRAL"
         val category = intent.getStringExtra("category") ?: "Complex"
         val reflectionPrompt = intent.getStringExtra("reflection") ?: ""
@@ -54,21 +50,10 @@ class FlowerResultActivity : AppCompatActivity() {
         val flowerInfo = FlowerData.flowers[flowerKey] ?: FlowerData.flowers["white_daisy"]!!
 
         // --- BIND UI ---
-
-        // 1. Header (Date)
-        // FIX: Improved parsing for "yyyy-M-d" and display "yyyy.MM.dd"
         val displayDate = if (dateKey != null) {
             try {
-                // Calendar passes format "yyyy-M-d" (e.g. 2025-11-5)
                 val parser = SimpleDateFormat("yyyy-M-d", Locale.getDefault())
-                var date = try {
-                    parser.parse(dateKey)
-                } catch (e: Exception) {
-                    // Fallback for zero-padded dates
-                    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateKey)
-                }
-
-                // Show full date with day
+                var date = try { parser.parse(dateKey) } catch (e: Exception) { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateKey) }
                 val formatter = SimpleDateFormat("yyyy.MM.dd", Locale.getDefault())
                 formatter.format(date ?: Date())
             } catch (e: Exception) {
@@ -79,43 +64,51 @@ class FlowerResultActivity : AppCompatActivity() {
         }
         findViewById<TextView>(R.id.tvDate).text = displayDate
 
-        findViewById<ImageButton>(R.id.btnClose).setOnClickListener {
-            val intent = Intent(this, CalendarActivity::class.java)
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
-            finish()
+        // Personalization
+        val prefsSettings = getSharedPreferences("app_settings", MODE_PRIVATE)
+        val nickname = prefsSettings.getString("user_nickname", "")
+        if (!nickname.isNullOrEmpty() && nickname != "Bloomix User") {
+            findViewById<TextView>(R.id.labelFlowerOf).text = "$nickname's flower of\nthe day is a"
+            findViewById<TextView>(R.id.labelMicroAction).text = "Micro-action for $nickname"
+            findViewById<TextView>(R.id.labelJournal).text = "$nickname's Journal"
         }
 
-        // --- CUSTOM DELETE DIALOG ---
+        // --- NAVIGATION FIX ---
+        findViewById<ImageButton>(R.id.btnClose).setOnClickListener {
+            if (isNewEntry) {
+                // If new, go to Calendar and clear the back stack (removes EmotionActivity)
+                val intent = Intent(this, CalendarActivity::class.java)
+                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+                finish()
+            } else {
+                // If history, just go back
+                finish()
+            }
+        }
+
         findViewById<ImageButton>(R.id.btnMenu).setOnClickListener {
             showCustomDeleteDialog(dateKey)
         }
 
-        // 2. Flower Card
+        // Populate Cards
         findViewById<ImageView>(R.id.flowerImage).setImageResource(flowerInfo.drawable)
         findViewById<TextView>(R.id.flowerName).text = flowerInfo.name
         findViewById<TextView>(R.id.flowerKeywords).text = flowerInfo.keywords
         findViewById<TextView>(R.id.flowerLanguage).text = flowerInfo.flowerLanguage
-
-        // 3. Sentiment Card
         findViewById<TextView>(R.id.tvSentiment).text = "Sentiment: $sentiment"
         findViewById<TextView>(R.id.tvCategory).text = "Overall mood: $category"
         findViewById<TextView>(R.id.tvReflectionPrompt).text = reflectionPrompt
-
-        // 4. Micro Action Card
         findViewById<TextView>(R.id.microAction).text = microActionDesc
-
-        // 5. Emotion Stats
-        generateEmotionStats(selectedEmotions)
-
-        // 6. Journal Card
         findViewById<TextView>(R.id.journalEntry).text = journalText
+
+        generateEmotionStats(selectedEmotions)
     }
 
     private fun showCustomDeleteDialog(dateKey: String?) {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        dialog.setContentView(R.layout.dialog_delete_entry) // Assume this layout exists
+        dialog.setContentView(R.layout.dialog_delete_entry)
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
 
         val btnDelete = dialog.findViewById<TextView>(R.id.btnDeleteAction)
@@ -123,11 +116,8 @@ class FlowerResultActivity : AppCompatActivity() {
             if (dateKey != null) {
                 deleteEntry(dateKey)
                 dialog.dismiss()
-            } else {
-                Toast.makeText(this, "Cannot delete: Date unknown", Toast.LENGTH_SHORT).show()
             }
         }
-
         dialog.show()
     }
 
@@ -140,58 +130,71 @@ class FlowerResultActivity : AppCompatActivity() {
             remove("category_$dateKey")
             remove("reflection_$dateKey")
             remove("micro_action_desc_$dateKey")
+            remove("emotions_$dateKey")
         }.apply()
 
         Toast.makeText(this, "Entry deleted", Toast.LENGTH_SHORT).show()
-
-        val intent = Intent(this, CalendarActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-        startActivity(intent)
+        // When deleting, we usually want to refresh whatever screen we came from.
+        // Since we finish(), the previous activity (Calendar or History) needs to refresh onResume.
         finish()
-    }
-
-    // Helper function to get the color based on emotion name
-    private fun getEmotionColor(emotion: String): Int {
-        // Look up the color using the lowercase emotion name.
-        val hexColor = emotionColors[emotion.lowercase(Locale.getDefault())] ?: "#F4C2C2"
-        return Color.parseColor(hexColor)
     }
 
     private fun generateEmotionStats(emotions: ArrayList<String>) {
         val container = findViewById<LinearLayout>(R.id.emotionsContainer)
         if (emotions.isEmpty()) return
 
-        // FIX: Ensure grouping keys are made lowercase to match the color map keys
         val counts = emotions.groupingBy { it.lowercase(Locale.getDefault()) }.eachCount()
         val total = emotions.size.toFloat()
 
-        counts.forEach { (emotion, count) ->
+        // FIX: Sort by count descending (largest count first)
+        counts.entries.sortedByDescending { it.value }.forEach { (emotion, count) ->
             val percentage = ((count / total) * 100).toInt()
-
-            // Get the specific color for the current emotion
             val colorInt = getEmotionColor(emotion)
 
+            val rowLayout = LinearLayout(this)
+            rowLayout.orientation = LinearLayout.HORIZONTAL
+            rowLayout.gravity = Gravity.CENTER_VERTICAL
+            rowLayout.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 8 }
+
+            val emotionIcon = ImageView(this)
+            val iconParams = LinearLayout.LayoutParams(60, 60)
+            iconParams.marginEnd = 16
+            emotionIcon.layoutParams = iconParams
+
+            var resId = resources.getIdentifier("em_$emotion", "drawable", packageName)
+            if (resId == 0) resId = resources.getIdentifier("${emotion}_chip", "drawable", packageName)
+            if (resId == 0) resId = resources.getIdentifier(emotion, "drawable", packageName)
+
+            if (resId != 0) {
+                emotionIcon.setImageResource(resId)
+                rowLayout.addView(emotionIcon)
+            }
+
             val label = TextView(this)
-            // Use the original capitalized emotion for display
             label.text = "${emotion.replaceFirstChar { it.uppercase(Locale.getDefault()) }} $percentage%"
-            label.textSize = 14f
+            label.textSize = 20f
             label.setTextColor(Color.parseColor("#555555"))
-            label.typeface = android.graphics.Typeface.MONOSPACE
+            try { label.typeface = ResourcesCompat.getFont(this, R.font.gamja_flower) } catch (e: Exception) {}
+
+            rowLayout.addView(label)
+            container.addView(rowLayout)
 
             val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal)
             progressBar.max = 100
             progressBar.progress = percentage
-
-            // FIX: Set the progress bar tint to the emotion-specific color
             progressBar.progressTintList = android.content.res.ColorStateList.valueOf(colorInt)
-
             progressBar.layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                20
+                LinearLayout.LayoutParams.MATCH_PARENT, 20
             ).apply { bottomMargin = 24 }
 
-            container.addView(label)
             container.addView(progressBar)
         }
+    }
+
+    private fun getEmotionColor(emotion: String): Int {
+        val hexColor = emotionColors[emotion.lowercase(Locale.getDefault())] ?: "#F4C2C2"
+        return Color.parseColor(hexColor)
     }
 }

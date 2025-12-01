@@ -1,17 +1,20 @@
 package com.example.bloomix
 
+import android.graphics.Typeface
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.res.ResourcesCompat
 import androidx.recyclerview.widget.RecyclerView
 import kotlin.math.min
 
 class HistoryAdapter(
-    private val entries: List<HistoryItem>, // FIXED: Changed HistoryModel to HistoryItem
-    private val onItemClick: (HistoryItem) -> Unit // FIXED: Changed HistoryModel to HistoryItem
+    private val entries: List<HistoryItem>,
+    private val onItemClick: (HistoryItem) -> Unit
 ) : RecyclerView.Adapter<HistoryAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -34,52 +37,66 @@ class HistoryAdapter(
 
         holder.dayNum.text = item.dayNumber
         holder.dayName.text = item.dayName
+
+        // Font setup for Flower Name
         holder.flowerName.text = item.flowerName
+        try {
+            val typeface = ResourcesCompat.getFont(context, R.font.gamja_flower)
+            holder.flowerName.typeface = typeface
+        } catch (e: Exception) {
+            holder.flowerName.typeface = Typeface.DEFAULT_BOLD
+        }
+        holder.flowerName.textSize = 24f
+
         holder.flowerImg.setImageResource(item.flowerResId)
 
-        // --- POPULATE EMOTION ICONS ---
+        // --- POPULATE EMOTION ICONS (UNIQUE ONLY) ---
         holder.emotionContainer.removeAllViews()
 
-        // Only show up to 3 icons to prevent overcrowding
-        val displayCount = min(item.emotions.size, 3)
+        // 1. Get unique list (e.g., [happy, happy, sad] -> [happy, sad])
+        val uniqueEmotions = item.emotions.map { it.lowercase().trim() }.distinct()
+
+        // 2. Show up to 4 icons (since they are unique, we can fit a few more)
+        val displayCount = min(uniqueEmotions.size, 4)
 
         for (i in 0 until displayCount) {
-            val emotion = item.emotions[i].lowercase().trim()
+            val emotion = uniqueEmotions[i]
 
-            // Try to find the drawable. We check multiple naming conventions to be safe.
-            // Priority: "happy" -> "em_happy" -> "happy_chip"
             var resId = context.resources.getIdentifier(emotion, "drawable", context.packageName)
-
-            if (resId == 0) {
-                resId = context.resources.getIdentifier("em_$emotion", "drawable", context.packageName)
-            }
-            if (resId == 0) {
-                resId = context.resources.getIdentifier("${emotion}_chip", "drawable", context.packageName)
-            }
+            if (resId == 0) resId = context.resources.getIdentifier("em_$emotion", "drawable", context.packageName)
+            if (resId == 0) resId = context.resources.getIdentifier("${emotion}_chip", "drawable", context.packageName)
 
             if (resId != 0) {
                 val icon = ImageView(context)
-                val size = 50 // roughly 20dp
+                val size = 60
                 val params = LinearLayout.LayoutParams(size, size)
-                params.marginEnd = 8
+                params.marginEnd = 12
                 icon.layoutParams = params
                 icon.setImageResource(resId)
                 holder.emotionContainer.addView(icon)
             }
         }
 
-        // Add "+2" text if there are more emotions than we showed
-        if (item.emotions.size > 3) {
+        // 3. Add "+N" text if there are still more unique emotions hidden
+        if (uniqueEmotions.size > displayCount) {
             val moreCount = TextView(context)
-            moreCount.text = "+${item.emotions.size - 3}"
-            moreCount.textSize = 12f
-            moreCount.setTextColor(android.graphics.Color.GRAY)
-            // Center the text vertically with the icons
+            moreCount.text = "+${uniqueEmotions.size - displayCount}"
+            moreCount.textSize = 16f
+
+            try {
+                val typeface = ResourcesCompat.getFont(context, R.font.gamja_flower)
+                moreCount.typeface = typeface
+            } catch (e: Exception) {
+                moreCount.typeface = Typeface.DEFAULT_BOLD
+            }
+
+            moreCount.setTextColor(android.graphics.Color.parseColor("#757575"))
+
             val params = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
-            params.gravity = android.view.Gravity.CENTER_VERTICAL
+            params.gravity = Gravity.CENTER_VERTICAL
             moreCount.layoutParams = params
 
             holder.emotionContainer.addView(moreCount)

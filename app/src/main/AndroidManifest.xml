@@ -32,8 +32,8 @@
         <activity android:name=".JournalActivity" android:exported="true" />
         <activity android:name=".SharedEmotionsActivity" android:exported="true" />
         <activity android:name=".HistoryActivity" />
-
         <activity android:name=".FlowerResultActivity" android:exported="true" />
+        <activity android:name=".StatsActivity" android:exported="true" />
 
         <meta-data
             android:name="preloaded_fonts"

@@ -47,26 +47,22 @@ class JournalActivity : AppCompatActivity() {
     private fun openFlowerResultScreen() {
         val journalText = findViewById<EditText>(R.id.etJournal).text.toString()
 
-        // 1. Run the AI Analysis (Naive Bayes + SVM)
+        // 1. Run the AI Analysis
         val analysisResult = MLProcessor.processEntry(journalText, selectedEmotions)
 
         val microActionDesc = analysisResult.suggestedMicroActions.firstOrNull()?.description
             ?: "Take a mindful pause today."
 
-        // 2. SAVE ALL DATA to SharedPreferences
+        // 2. SAVE ALL DATA
         selectedDateKey?.let { dateKey ->
             val prefs = getSharedPreferences("journal_data", MODE_PRIVATE)
             prefs.edit().apply {
                 putString("flower_$dateKey", chosenFlowerKey)
                 putString("journal_$dateKey", journalText)
-
-                // Save AI Analysis Results
                 putString("sentiment_$dateKey", analysisResult.sentiment.name)
                 putString("category_$dateKey", analysisResult.overallMoodCategory)
                 putString("reflection_$dateKey", analysisResult.reflectionPrompt)
                 putString("micro_action_desc_$dateKey", microActionDesc)
-
-                // Save Emotions List (comma separated) so we can show stats later
                 putString("emotions_$dateKey", selectedEmotions.joinToString(","))
             }.apply()
         }
@@ -79,11 +75,13 @@ class JournalActivity : AppCompatActivity() {
         intent.putExtra("flower_key", chosenFlowerKey)
         intent.putStringArrayListExtra("selected", selectedEmotions)
 
-        // Pass Analysis Results
         intent.putExtra("sentiment", analysisResult.sentiment.name)
         intent.putExtra("category", analysisResult.overallMoodCategory)
         intent.putExtra("reflection", analysisResult.reflectionPrompt)
         intent.putExtra("micro_action_desc", microActionDesc)
+
+        // --- CRITICAL FIX: Tell the next screen this is a NEW entry ---
+        intent.putExtra("is_new_entry", true)
 
         startActivity(intent)
         finish()
