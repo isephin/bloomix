@@ -70,6 +70,6 @@
         android:background="@drawable/rectangle_container"
         android:paddingVertical="12dp"
         android:layout_marginTop="32dp"
-        tools:backgroundTint="@color/dark_grey" />
+        android:backgroundTint="@color/dark_grey" />
 
 </LinearLayout>
