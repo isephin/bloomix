@@ -19,6 +19,23 @@ import java.util.Locale
 
 class FlowerResultActivity : AppCompatActivity() {
 
+    // Define a map for emotion colors using the hex codes from the image (lowercase keys)
+    private val emotionColors = mapOf(
+        "loved" to "#FF88AA",       // Pink
+        "annoyed" to "#FF6666",     // Reddish Pink
+        "angry" to "#FF3300",       // Bright Red/Orange
+        "stressed" to "#FFAA66",    // Orange
+        "happy" to "#FFDD66",       // Yellowish Gold
+        "confused" to "#FFFF66",    // Bright Yellow
+        "excited" to "#66FF66",     // Bright Green
+        "bored" to "#66CCCC",       // Teal/Light Cyan
+        "calm" to "#66CCCC",        // Teal/Light Cyan
+        "sad" to "#3366FF",         // Blue
+        "shocked" to "#6633CC",     // Violet/Purple
+        "tired" to "#AAAAAA",       // Gray
+        "neutral" to "#A9A9A9"      // General fallback
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_flower_result)
@@ -98,7 +115,7 @@ class FlowerResultActivity : AppCompatActivity() {
     private fun showCustomDeleteDialog(dateKey: String?) {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        dialog.setContentView(R.layout.dialog_delete_entry) // Use the new layout
+        dialog.setContentView(R.layout.dialog_delete_entry) // Assume this layout exists
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
 
         val btnDelete = dialog.findViewById<TextView>(R.id.btnDeleteAction)
@@ -133,18 +150,30 @@ class FlowerResultActivity : AppCompatActivity() {
         finish()
     }
 
+    // Helper function to get the color based on emotion name
+    private fun getEmotionColor(emotion: String): Int {
+        // Look up the color using the lowercase emotion name.
+        val hexColor = emotionColors[emotion.lowercase(Locale.getDefault())] ?: "#F4C2C2"
+        return Color.parseColor(hexColor)
+    }
+
     private fun generateEmotionStats(emotions: ArrayList<String>) {
         val container = findViewById<LinearLayout>(R.id.emotionsContainer)
         if (emotions.isEmpty()) return
 
-        val counts = emotions.groupingBy { it }.eachCount()
+        // FIX: Ensure grouping keys are made lowercase to match the color map keys
+        val counts = emotions.groupingBy { it.lowercase(Locale.getDefault()) }.eachCount()
         val total = emotions.size.toFloat()
 
         counts.forEach { (emotion, count) ->
             val percentage = ((count / total) * 100).toInt()
 
+            // Get the specific color for the current emotion
+            val colorInt = getEmotionColor(emotion)
+
             val label = TextView(this)
-            label.text = "${emotion.replaceFirstChar { it.uppercase() }} $percentage%"
+            // Use the original capitalized emotion for display
+            label.text = "${emotion.replaceFirstChar { it.uppercase(Locale.getDefault()) }} $percentage%"
             label.textSize = 14f
             label.setTextColor(Color.parseColor("#555555"))
             label.typeface = android.graphics.Typeface.MONOSPACE
@@ -152,7 +181,10 @@ class FlowerResultActivity : AppCompatActivity() {
             val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal)
             progressBar.max = 100
             progressBar.progress = percentage
-            progressBar.progressTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#F4C2C2"))
+
+            // FIX: Set the progress bar tint to the emotion-specific color
+            progressBar.progressTintList = android.content.res.ColorStateList.valueOf(colorInt)
+
             progressBar.layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 20

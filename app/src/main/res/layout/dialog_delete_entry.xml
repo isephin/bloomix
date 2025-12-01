@@ -19,14 +19,14 @@
         android:id="@+id/btnDeleteAction"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#F0F0F0"
+        android:background="@color/light_grey"
         android:padding="16dp"
         android:gravity="center"
         android:text="Delete Flower and Journal Entry"
-        android:textColor="#555555"
+        android:textColor="@color/dark_grey"
         android:textSize="14sp"
         android:textStyle="bold"
-        android:fontFamily="monospace"
+        android:fontFamily="@font/gamja_flower"
         android:clickable="true"
         android:focusable="true" />
 

@@ -1,9 +1,16 @@
 package com.example.bloomix
 
 import android.app.Activity
+import android.app.Dialog
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.view.Gravity
+import android.view.ViewGroup // Required for dialog width logic
+import android.view.WindowManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -50,11 +57,133 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
             changeMonth(1)
         }
 
-        // --- NEW: History Button Click Listener ---
-        findViewById<Button>(R.id.btnHistory).setOnClickListener {
+        // --- Navigation Button Click Listeners ---
+
+        // Note: R.id.btnHistory is not in activity_calendar.xml, using R.id.iconTulip instead
+        findViewById<ImageView>(R.id.btnHistory).setOnClickListener {
+            // Assuming HistoryActivity is the correct target
             val intent = Intent(this, HistoryActivity::class.java)
             startActivity(intent)
         }
+
+        // Settings Button (R.id.iconSettings)
+        findViewById<ImageView>(R.id.iconSettings).setOnClickListener {
+            showSettingsDialog()
+        }
+
+        // Statistics Button (R.id.iconBarChart)
+        findViewById<ImageView>(R.id.iconBarChart).setOnClickListener {
+            Toast.makeText(this, "Statistics feature coming soon!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+
+    // --- Settings Dialog Methods ---
+
+    private fun showSettingsDialog() {
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.dialog_settings)
+
+        val prefs = getSharedPreferences("app_settings", MODE_PRIVATE)
+        val tvNicknameLabel = dialog.findViewById<TextView>(R.id.tvNicknameLabel)
+
+        // Load and display current nickname
+        val currentNickname = prefs.getString("user_nickname", "Bloomix User")
+        tvNicknameLabel.text = "Nickname: $currentNickname"
+
+        // Back button to dismiss dialog
+        dialog.findViewById<ImageView>(R.id.btnBack).setOnClickListener {
+            dialog.dismiss()
+        }
+
+        // Change Nickname button
+        dialog.findViewById<TextView>(R.id.btnChangeNickname).setOnClickListener {
+            dialog.dismiss() // Dismiss settings dialog first
+            showChangeNicknameDialog() // Show nickname dialog
+        }
+
+        // Logout button
+        dialog.findViewById<Button>(R.id.btnLogout).setOnClickListener {
+            val intent = Intent(this, SignUp::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            dialog.dismiss()
+            finish()
+        }
+
+        // --- FIX: Set the dialog width programmatically ---
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        val width = (resources.displayMetrics.widthPixels * 0.9).toInt()
+        dialog.window?.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
+        // ----------------------------------------------------
+
+        dialog.show()
+    }
+
+    private fun showChangeNicknameDialog() {
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.dialog_change_nickname)
+
+        val prefs = getSharedPreferences("app_settings", MODE_PRIVATE)
+        val etNewNickname = dialog.findViewById<EditText>(R.id.etNewNickname)
+
+        // Pre-fill with current nickname
+        val currentNickname = prefs.getString("user_nickname", "Bloomix User")
+        etNewNickname.setText(currentNickname)
+
+        dialog.findViewById<Button>(R.id.btnCancel).setOnClickListener {
+            dialog.dismiss()
+            showSettingsDialog() // Return to the settings dialog
+        }
+
+        dialog.findViewById<Button>(R.id.btnSave).setOnClickListener {
+            val newNickname = etNewNickname.text.toString().trim()
+            if (newNickname.isNotEmpty()) {
+                prefs.edit().putString("user_nickname", newNickname).apply()
+                Toast.makeText(this, "Nickname saved!", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+                showSettingsDialog() // Refresh settings dialog with new nickname
+            } else {
+                Toast.makeText(this, "Nickname cannot be empty.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // --- FIX: Set the dialog width programmatically ---
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        val width = (resources.displayMetrics.widthPixels * 0.9).toInt()
+        dialog.window?.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
+        // ----------------------------------------------------
+
+        dialog.show()
+    }
+
+    // --- Delete Entry Dialog Method ---
+    fun showDeleteEntryDialog(dateKey: String) {
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.dialog_delete_entry)
+
+        // Configure dialog to appear at the bottom
+        val window = dialog.window
+        window?.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
+        window?.setGravity(Gravity.BOTTOM)
+
+        dialog.findViewById<TextView>(R.id.btnDeleteAction).setOnClickListener {
+            val prefs = getSharedPreferences("journal_data", MODE_PRIVATE)
+            prefs.edit()
+                .remove("flower_$dateKey")
+                .remove("journal_$dateKey")
+                .remove("sentiment_$dateKey")
+                .remove("category_$dateKey")
+                .remove("reflection_$dateKey")
+                .remove("micro_action_desc_$dateKey")
+                .remove("emotions_$dateKey")
+                .apply()
+
+            Toast.makeText(this, "Entry for $dateKey deleted.", Toast.LENGTH_SHORT).show()
+            dialog.dismiss()
+            updateCalendar() // Refresh the calendar view
+        }
+        dialog.show()
     }
 
 
@@ -160,6 +289,7 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
             intent.putStringArrayListExtra("selected", emotionsList)
 
             startActivity(intent)
+
         } else {
             // NO ENTRY: Start a new journal entry
             val intent = Intent(this, EmotionActivity::class.java)

@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5"
+    android:background="@color/off_white"
     android:padding="16dp">
 
     <!-- Top Navigation Bar -->
@@ -24,7 +24,7 @@
             android:background="@drawable/rectangle_container"
             android:src="@drawable/ic_close"
             android:padding="12dp"
-            app:tint="#888888" />
+            app:tint="@color/ash_grey" />
 
         <TextView
             android:id="@+id/tvDate"
@@ -35,7 +35,7 @@
             android:gravity="center"
             android:letterSpacing="0.1"
             android:text="2025.09"
-            android:textColor="#333333"
+            android:textColor="@color/dark_grey"
             android:textSize="24sp"
             android:textStyle="bold" />
 
@@ -46,7 +46,7 @@
             android:background="@drawable/rectangle_container"
             android:src="@drawable/ic_menu_dots"
             android:padding="12dp"
-            app:tint="#888888" />
+            app:tint="@color/ash_grey" />
     </LinearLayout>
 
     <ScrollView
@@ -82,7 +82,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="16dp"
-                        app:cardBackgroundColor="#FFFFFF"
+                        app:cardBackgroundColor="@color/off_white"
                         app:cardCornerRadius="16dp"
                         app:cardElevation="0dp">
 
@@ -103,8 +103,9 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:fontFamily="@font/gamja_flower"
-                                    android:text="your flower of\nthe day is a"
-                                    android:textColor="#555555"
+                                    android:text="Your flower of\nthe day is a"
+                                    android:textColor="@color/ash_grey"
+                                    android:paddingBottom="8dp"
                                     android:textSize="18sp" />
 
                                 <TextView
@@ -113,15 +114,15 @@
                                     android:layout_height="wrap_content"
                                     android:fontFamily="@font/gamja_flower"
                                     android:text="Red Rose"
-                                    android:textColor="#333333"
+                                    android:textColor="@color/dark_grey"
                                     android:textSize="32sp"
                                     android:textStyle="bold" />
                             </LinearLayout>
 
                             <ImageView
                                 android:id="@+id/flowerImage"
-                                android:layout_width="80dp"
-                                android:layout_height="80dp"
+                                android:layout_width="85dp"
+                                android:layout_height="85dp"
                                 android:src="@drawable/rose" />
                         </LinearLayout>
                     </androidx.cardview.widget.CardView>
@@ -134,8 +135,8 @@
                         android:fontFamily="@font/gamja_flower"
                         android:gravity="center"
                         android:text="Passion + Love + Devotion"
-                        android:textColor="#444444"
-                        android:textSize="18sp"
+                        android:textColor="@color/dark_grey"
+                        android:textSize="20sp"
                         android:textStyle="bold" />
 
                     <!-- Long Description -->
@@ -147,7 +148,7 @@
                         android:fontFamily="@font/gamja_flower"
                         android:lineSpacingMultiplier="1.2"
                         android:text="Red roses are the universal symbol of love..."
-                        android:textColor="#666666"
+                        android:textColor="@color/ash_grey"
                         android:textSize="16sp" />
 
                 </LinearLayout>
@@ -176,7 +177,7 @@
                         android:fontFamily="@font/gamja_flower"
                         android:gravity="center"
                         android:text="Sentiment: Positive"
-                        android:textColor="#757575"
+                        android:textColor="@color/dark_grey"
                         android:textSize="20sp"
                         android:textStyle="bold" />
 
@@ -188,7 +189,7 @@
                         android:gravity="center"
                         android:fontFamily="@font/gamja_flower"
                         android:text="Overall mood: Complex Emotional Landscape"
-                        android:textColor="#999999"
+                        android:textColor="@color/ash_grey"
                         android:textSize="14sp" />
 
                     <TextView
@@ -226,7 +227,7 @@
                         android:fontFamily="@font/gamja_flower"
                         android:gravity="center"
                         android:text="Micro-action for you"
-                        android:textColor="#999999"
+                        android:textColor="@color/ash_grey"
                         android:textSize="16sp" />
 
                     <TextView
@@ -238,7 +239,7 @@
                         android:gravity="center"
                         android:lineSpacingMultiplier="1.2"
                         android:text="Celebrate this moment! Share your love..."
-                        android:textColor="#444444"
+                        android:textColor="@color/dark_grey"
                         android:textSize="18sp" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
@@ -265,7 +266,7 @@
                         android:layout_marginBottom="16dp"
                         android:fontFamily="@font/gamja_flower"
                         android:text="Emotions"
-                        android:textColor="#999999"
+                        android:textColor="@color/ash_grey"
                         android:textSize="16sp" />
 
                     <!-- Emotion bars will be added dynamically here -->
@@ -293,7 +294,7 @@
                         android:layout_height="wrap_content"
                         android:fontFamily="@font/gamja_flower"
                         android:text="Journal"
-                        android:textColor="#999999"
+                        android:textColor="@color/ash_grey"
                         android:textSize="16sp" />
 
                     <TextView
@@ -304,7 +305,7 @@
                         android:fontFamily="@font/gamja_flower"
                         android:lineSpacingMultiplier="1.2"
                         android:text="Today a stranger gave me flowers..."
-                        android:textColor="#444444"
+                        android:textColor="@color/dark_grey"
                         android:textSize="18sp" />
 
                 </LinearLayout>

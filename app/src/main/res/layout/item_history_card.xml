@@ -21,7 +21,7 @@
             android:layout_width="60dp"
             android:layout_height="60dp"
             android:background="@drawable/rounded_corner_background"
-            android:backgroundTint="#E0E0E0"
+            android:backgroundTint="@color/light_grey"
             android:gravity="center"
             android:orientation="vertical"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -32,9 +32,9 @@
                 android:id="@+id/tvDayNumber"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-medium"
-                android:textColor="#444444"
-                android:textSize="20sp"
+                android:fontFamily="@font/gamja_flower"
+                android:textColor="@color/dark_grey"
+                android:textSize="25sp"
                 android:textStyle="bold"
                 tools:text="1" />
 
@@ -42,9 +42,9 @@
                 android:id="@+id/tvDayName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:fontFamily="sans-serif"
-                android:textColor="#777777"
-                android:textSize="12sp"
+                android:fontFamily="@font/gamja_flower"
+                android:textColor="@color/ash_grey"
+                android:textSize="18sp"
                 tools:text="Sun" />
         </LinearLayout>
 
@@ -56,8 +56,8 @@
             android:layout_marginStart="16dp"
             android:layout_marginEnd="8dp"
             android:fontFamily="@font/gamja_flower"
-            android:textColor="#333333"
-            android:textSize="22sp"
+            android:textColor="@color/dark_grey"
+            android:textSize="30sp"
             android:textStyle="bold"
             app:layout_constraintEnd_toStartOf="@+id/ivFlower"
             app:layout_constraintStart_toEndOf="@+id/dateBox"
