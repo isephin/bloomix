@@ -12,10 +12,6 @@ object MLProcessor {
     }
 
     private fun trainModels() {
-        // ==========================================
-        // 1. TRAIN NAIVE BAYES (Sentiment Analysis)
-        // ==========================================
-
         // --- POSITIVE ---
         naiveBayes.train("happy excited joy awesome great", Sentiment.POSITIVE)
         naiveBayes.train("loved blessed wonderful amazing best", Sentiment.POSITIVE)
@@ -23,7 +19,7 @@ object MLProcessor {
         naiveBayes.train("peaceful calm relax content relief", Sentiment.POSITIVE)
         naiveBayes.train("hope future enjoy looking forward", Sentiment.POSITIVE)
         naiveBayes.train("grateful thankful appreciate lucky", Sentiment.POSITIVE)
-        naiveBayes.train("almost done finished completed achievement", Sentiment.POSITIVE) // Fix for "almost done"
+        naiveBayes.train("almost done finished completed achievement", Sentiment.POSITIVE)
         naiveBayes.train("fun laugh smile playing friends", Sentiment.POSITIVE)
 
         // --- NEGATIVE ---
@@ -43,36 +39,16 @@ object MLProcessor {
         naiveBayes.train("confused unsure maybe perhaps", Sentiment.NEUTRAL)
         naiveBayes.train("bittersweet mixed complicated weird", Sentiment.NEUTRAL)
 
-
-        // ==========================================
-        // 2. TRAIN SVM (Mood Category)
-        // ==========================================
+        // --- SVM ---
         svm.buildVocabulary(listOf())
-
-        // High Energy Positive (Active, Happy, Excited)
         svm.train(listOf("happy", "excited"), "best day ever energy", "High-Energy Positive Focus")
-        svm.train(listOf("excited", "proud"), "achieved so much", "High-Energy Positive Focus")
-        svm.train(listOf("happy", "loved"), "feeling great", "High-Energy Positive Focus")
-        svm.train(listOf("shocked", "happy"), "surprise party", "High-Energy Positive Focus")
-
-        // Balanced / Low Energy Positive (Calm, Loved, Grateful)
+        svm.train(listOf("excited", "loved"), "so much energy", "High-Energy Positive Focus")
         svm.train(listOf("calm", "happy"), "peaceful day", "Balanced and Contemplative")
         svm.train(listOf("loved", "grateful"), "family time", "Balanced and Contemplative")
-        svm.train(listOf("bored", "calm"), "just relaxing", "Balanced and Contemplative")
-        svm.train(listOf("tired", "happy"), "good tired satisfied", "Balanced and Contemplative")
-
-        // Negative / Difficult (Sad, Angry, Stressed)
         svm.train(listOf("sad", "tired"), "hard times crying", "Processing Difficult Emotions")
         svm.train(listOf("angry", "stressed"), "so mad at work", "Processing Difficult Emotions")
-        svm.train(listOf("anxious", "scared"), "panic attack worry", "Processing Difficult Emotions")
-        svm.train(listOf("annoyed", "bored"), "nothing to do hate it", "Processing Difficult Emotions")
-
-        // Complex / Mixed (Conflicting emotions)
         svm.train(listOf("happy", "sad"), "bittersweet feeling", "Complex Emotional Landscape")
         svm.train(listOf("excited", "nervous"), "big changes coming", "Complex Emotional Landscape")
-        svm.train(listOf("loved", "annoyed"), "family is hard but good", "Complex Emotional Landscape")
-        svm.train(listOf("tired", "proud"), "worked hard exhausted", "Complex Emotional Landscape")
-        svm.train(listOf("confused", "shocked"), "what happened", "Complex Emotional Landscape")
     }
 
     private fun generateReflection(sentiment: Sentiment, category: String, selectedEmotions: List<String>, journalText: String): Pair<String, String> {
@@ -82,25 +58,19 @@ object MLProcessor {
 
     fun processEntry(journalText: String, selectedEmotions: List<String>): AnalysisResult {
 
-        // 1. ENRICH TEXT: Add the selected emotions to the text analysis
-        // If you selected "Happy" 5 times, we add "happy happy happy happy happy" to the text.
-        // This forces the Naive Bayes model to respect your button choices.
-        val emotionText = selectedEmotions.joinToString(" ")
+        val emotionText = selectedEmotions.joinToString(" ") { "$it $it $it" }
         val enrichedText = "$journalText $emotionText"
 
-        // 2. PREDICT SENTIMENT (using enriched text)
         val sentiment = naiveBayes.predict(enrichedText)
-
-        // 3. PREDICT CATEGORY
         val category = svm.predict(selectedEmotions, journalText)
 
-        // 4. SANITY CHECK: If Sentiment and Category contradict, trust the Category (SVM)
-        // because SVM considers both inputs more holistically.
         var finalSentiment = sentiment
         if (category == "High-Energy Positive Focus" && sentiment == Sentiment.NEGATIVE) {
-            finalSentiment = Sentiment.POSITIVE // Override mismatch
+            finalSentiment = Sentiment.POSITIVE
         } else if (category == "Processing Difficult Emotions" && sentiment == Sentiment.POSITIVE) {
-            finalSentiment = Sentiment.NEGATIVE // Override mismatch
+            finalSentiment = Sentiment.NEGATIVE
+        } else if (category == "Balanced and Contemplative" && sentiment == Sentiment.NEGATIVE) {
+            finalSentiment = Sentiment.NEUTRAL
         }
 
         val (prompt, microActionDesc) = generateReflection(finalSentiment, category, selectedEmotions, journalText)
@@ -111,5 +81,10 @@ object MLProcessor {
             reflectionPrompt = prompt,
             suggestedMicroActions = listOf(MicroAction("General", microActionDesc))
         )
+    }
+
+    // NEW: Extract keywords for statistics visualization
+    fun extractKeyWords(text: String): Pair<List<String>, List<String>> {
+        return naiveBayes.identifyKeywords(text)
     }
 }

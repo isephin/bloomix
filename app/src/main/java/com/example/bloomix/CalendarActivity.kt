@@ -2,11 +2,14 @@ package com.example.bloomix
 
 import android.app.Activity
 import android.app.Dialog
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
-import android.view.Gravity
+import android.view.GestureDetector
+import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
@@ -21,6 +24,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import kotlin.collections.LinkedHashMap
+import kotlin.math.abs
 
 class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
 
@@ -73,16 +77,31 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
             intent.putExtra("year", currentYear)
             startActivity(intent)
         }
+
+        // --- ADD SWIPE LISTENER ---
+        val swipeListener = object : OnSwipeTouchListener(this@CalendarActivity) {
+            override fun onSwipeRight() {
+                changeMonth(-1) // Previous Month
+            }
+            override fun onSwipeLeft() {
+                changeMonth(1) // Next Month
+            }
+        }
+
+        // Attach to RecyclerView (Calendar Grid)
+        recyclerView.setOnTouchListener(swipeListener)
+
+        // Attach to the root background (for empty areas)
+        findViewById<View>(android.R.id.content).setOnTouchListener(swipeListener)
     }
 
-    // --- FIX: Refresh Calendar whenever screen is shown (after entry created/deleted) ---
+    // --- FIX: Refresh Calendar whenever screen is shown ---
     override fun onResume() {
         super.onResume()
         updateCalendar()
     }
 
-    // ... (Rest of your existing CalendarActivity code: showSettingsDialog, changeMonth, etc.) ...
-
+    // ... (Settings Dialog methods remain the same) ...
     private fun showSettingsDialog() {
         val dialog = Dialog(this)
         dialog.setContentView(R.layout.dialog_settings)
@@ -216,7 +235,6 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
             intent.putExtra("reflection", reflection)
             intent.putExtra("micro_action_desc", microAction)
             intent.putStringArrayListExtra("selected", emotionsList)
-
             startActivity(intent)
         } else {
             val intent = Intent(this, EmotionActivity::class.java)
@@ -251,5 +269,53 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
 
     private fun getMonthName(monthIndex: Int): String {
         return listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")[monthIndex]
+    }
+
+    // --- HELPER CLASS FOR SWIPE DETECTION ---
+    open class OnSwipeTouchListener(ctx: Context) : View.OnTouchListener {
+        private val gestureDetector = GestureDetector(ctx, GestureListener())
+
+        override fun onTouch(v: View, event: MotionEvent): Boolean {
+            return gestureDetector.onTouchEvent(event)
+        }
+
+        private inner class GestureListener : GestureDetector.SimpleOnGestureListener() {
+            private val SWIPE_THRESHOLD = 100
+            private val SWIPE_VELOCITY_THRESHOLD = 100
+
+            override fun onDown(e: MotionEvent): Boolean {
+                return false // Return false so clicks can still pass through if not a swipe
+            }
+
+            override fun onFling(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                velocityX: Float,
+                velocityY: Float
+            ): Boolean {
+                if (e1 == null) return false
+                val result = false
+                try {
+                    val diffY = e2.y - e1.y
+                    val diffX = e2.x - e1.x
+                    if (abs(diffX) > abs(diffY)) {
+                        if (abs(diffX) > SWIPE_THRESHOLD && abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                            if (diffX > 0) {
+                                onSwipeRight()
+                            } else {
+                                onSwipeLeft()
+                            }
+                            return true
+                        }
+                    }
+                } catch (exception: Exception) {
+                    exception.printStackTrace()
+                }
+                return result
+            }
+        }
+
+        open fun onSwipeRight() {}
+        open fun onSwipeLeft() {}
     }
 }

@@ -21,6 +21,7 @@ import java.util.Locale
 
 class FlowerResultActivity : AppCompatActivity() {
 
+    // Define a map for emotion colors
     private val emotionColors = mapOf(
         "loved" to "#FF88AA", "annoyed" to "#FF6666", "angry" to "#FF3300",
         "stressed" to "#FFAA66", "happy" to "#FFDD66", "confused" to "#FFFF66",
@@ -38,9 +39,6 @@ class FlowerResultActivity : AppCompatActivity() {
         val flowerKey = intent.getStringExtra("flower_key") ?: "white_daisy"
         val selectedEmotions = intent.getStringArrayListExtra("selected") ?: arrayListOf()
         val dateKey = intent.getStringExtra("selectedDate")
-
-        // Check if we came from a new entry or history
-        val isNewEntry = intent.getBooleanExtra("is_new_entry", false)
 
         val sentiment = intent.getStringExtra("sentiment") ?: "NEUTRAL"
         val category = intent.getStringExtra("category") ?: "Complex"
@@ -64,7 +62,6 @@ class FlowerResultActivity : AppCompatActivity() {
         }
         findViewById<TextView>(R.id.tvDate).text = displayDate
 
-        // Personalization
         val prefsSettings = getSharedPreferences("app_settings", MODE_PRIVATE)
         val nickname = prefsSettings.getString("user_nickname", "")
         if (!nickname.isNullOrEmpty() && nickname != "Bloomix User") {
@@ -74,17 +71,10 @@ class FlowerResultActivity : AppCompatActivity() {
         }
 
         // --- NAVIGATION FIX ---
+        // Just finish(). Do NOT start a new Intent.
+        // This returns to the existing CalendarActivity instance (which is still on November).
         findViewById<ImageButton>(R.id.btnClose).setOnClickListener {
-            if (isNewEntry) {
-                // If new, go to Calendar and clear the back stack (removes EmotionActivity)
-                val intent = Intent(this, CalendarActivity::class.java)
-                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-                finish()
-            } else {
-                // If history, just go back
-                finish()
-            }
+            finish()
         }
 
         findViewById<ImageButton>(R.id.btnMenu).setOnClickListener {
@@ -134,8 +124,7 @@ class FlowerResultActivity : AppCompatActivity() {
         }.apply()
 
         Toast.makeText(this, "Entry deleted", Toast.LENGTH_SHORT).show()
-        // When deleting, we usually want to refresh whatever screen we came from.
-        // Since we finish(), the previous activity (Calendar or History) needs to refresh onResume.
+        // Just finish to go back to Calendar and let onResume refresh the view
         finish()
     }
 
@@ -146,7 +135,7 @@ class FlowerResultActivity : AppCompatActivity() {
         val counts = emotions.groupingBy { it.lowercase(Locale.getDefault()) }.eachCount()
         val total = emotions.size.toFloat()
 
-        // FIX: Sort by count descending (largest count first)
+        // Sort by count descending
         counts.entries.sortedByDescending { it.value }.forEach { (emotion, count) ->
             val percentage = ((count / total) * 100).toInt()
             val colorInt = getEmotionColor(emotion)

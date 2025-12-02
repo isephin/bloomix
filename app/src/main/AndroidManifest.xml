@@ -3,6 +3,11 @@
     package="com.example.bloomix"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- REQUIRED for Firebase Authentication and Network Calls -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Recommended for Firebase to handle connection changes -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -13,7 +18,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Bloomix">
 
-        <!-- Launch Screen -->
+        <!-- Regular Activity (No longer the launcher) -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true" />
+
+        <!-- Launch Screen: NOW SET TO SIGN UP -->
         <activity
             android:name=".SignUp"
             android:exported="true">
@@ -24,15 +34,12 @@
         </activity>
 
         <activity android:name=".LogIn" android:exported="true" />
-        <activity android:name=".MainActivity" android:exported="true" />
         <activity android:name=".CalendarActivity" android:exported="true" />
         <activity android:name=".EmotionActivity" android:exported="true" />
-
-        <!-- Newly added activities -->
         <activity android:name=".JournalActivity" android:exported="true" />
         <activity android:name=".SharedEmotionsActivity" android:exported="true" />
-        <activity android:name=".HistoryActivity" />
         <activity android:name=".FlowerResultActivity" android:exported="true" />
+        <activity android:name=".HistoryActivity" android:exported="true" />
         <activity android:name=".StatsActivity" android:exported="true" />
 
         <meta-data
@@ -42,4 +49,3 @@
     </application>
 
 </manifest>
-

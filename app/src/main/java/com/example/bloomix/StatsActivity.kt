@@ -1,23 +1,31 @@
 package com.example.bloomix
 
-import android.app.Activity
 import android.app.Dialog
+import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.view.GestureDetector
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.core.content.res.ResourcesCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.Locale
+import kotlin.math.abs
 
 class StatsActivity : AppCompatActivity() {
 
@@ -29,58 +37,127 @@ class StatsActivity : AppCompatActivity() {
         "neutral" to "#A9A9A9"
     )
 
+    private var currentMonth = 0
+    private var currentYear = 0
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_stats)
 
         val cal = Calendar.getInstance()
-        val month = intent.getIntExtra("month", cal.get(Calendar.MONTH))
-        val year = intent.getIntExtra("year", cal.get(Calendar.YEAR))
-
-        findViewById<TextView>(R.id.tvStatsDate).text = "$year.${String.format("%02d", month + 1)}"
+        currentMonth = intent.getIntExtra("month", cal.get(Calendar.MONTH))
+        currentYear = intent.getIntExtra("year", cal.get(Calendar.YEAR))
 
         findViewById<ImageButton>(R.id.btnBack).setOnClickListener { finish() }
 
-        loadStats(year, month)
-    }
+        // Navigation Buttons
+        findViewById<ImageButton>(R.id.btnPrevMonth).setOnClickListener { changeMonth(-1) }
+        findViewById<ImageButton>(R.id.btnNextMonth).setOnClickListener { changeMonth(1) }
 
-    private fun loadStats(year: Int, month: Int) {
-        val prefs = getSharedPreferences("journal_data", MODE_PRIVATE)
-        val allKeys = prefs.all.keys
-        val prefix = "flower_$year-${month + 1}-"
-
-        val flowerCounts = mutableMapOf<String, Int>()
-        val emotionCounts = mutableMapOf<String, Int>()
-        val dailyEmotionsMap = mutableMapOf<Int, List<String>>()
-        val dailySentimentScores = mutableMapOf<Int, Int>()
-
-        allKeys.filter { it.startsWith(prefix) }.forEach { key ->
-            val dateKey = key.removePrefix("flower_")
-            val day = dateKey.split("-").last().toIntOrNull() ?: 0
-
-            val flowerKey = prefs.getString(key, "white_daisy") ?: "white_daisy"
-            flowerCounts[flowerKey] = flowerCounts.getOrDefault(flowerKey, 0) + 1
-
-            val emotionsStr = prefs.getString("emotions_$dateKey", "")
-            val dayEmotions = if (!emotionsStr.isNullOrEmpty()) emotionsStr.split(",") else emptyList()
-
-            dailyEmotionsMap[day] = dayEmotions
-
-            var posCount = 0.0
-            dayEmotions.forEach { emo ->
-                val clean = emo.trim().lowercase()
-                emotionCounts[clean] = emotionCounts.getOrDefault(clean, 0) + 1
-                if (clean in listOf("happy", "excited", "loved", "calm", "grateful")) posCount++
-            }
-
-            val score = if (dayEmotions.isNotEmpty()) (posCount / dayEmotions.size * 100).toInt() else 0
-            dailySentimentScores[day] = score
+        // Swipe Detector
+        val swipeListener = object : OnSwipeTouchListener(this@StatsActivity) {
+            override fun onSwipeRight() { changeMonth(-1) }
+            override fun onSwipeLeft() { changeMonth(1) }
         }
 
-        setupGardenList(flowerCounts)
-        setupEmotionsList(emotionCounts)
-        setupDailyChart(dailyEmotionsMap)
-        setupPositiveIndex(dailySentimentScores)
+        // Attach swipe to root view and scroll view
+        findViewById<View>(R.id.statsRoot).setOnTouchListener(swipeListener)
+        findViewById<ScrollView>(R.id.statsScrollView).setOnTouchListener(swipeListener)
+
+        loadStats()
+    }
+
+    private fun changeMonth(offset: Int) {
+        currentMonth += offset
+        if (currentMonth < 0) {
+            currentMonth = 11
+            currentYear--
+        } else if (currentMonth > 11) {
+            currentMonth = 0
+            currentYear++
+        }
+        loadStats()
+    }
+
+    private fun loadStats() {
+        // Update Title immediately
+        findViewById<TextView>(R.id.tvStatsDate).text = "$currentYear.${String.format("%02d", currentMonth + 1)}"
+
+        // --- OPTIMIZATION: Process stats in Background Thread ---
+        CoroutineScope(Dispatchers.IO).launch {
+            val prefs = getSharedPreferences("journal_data", MODE_PRIVATE)
+            val allKeys = prefs.all.keys
+            val prefix = "flower_$currentYear-${currentMonth + 1}-"
+
+            val flowerCounts = mutableMapOf<String, Int>()
+            val emotionCounts = mutableMapOf<String, Int>()
+            val dailyEmotionsMap = mutableMapOf<Int, List<String>>()
+            val dailySentimentScores = mutableMapOf<Int, Int>()
+
+            // 1. NEW: Create a builder to collect ALL text for the month
+            val combinedJournalText = StringBuilder()
+
+            // Heavy filtering loop
+            allKeys.filter { it.startsWith(prefix) }.forEach { key ->
+                val dateKey = key.removePrefix("flower_")
+                val day = dateKey.split("-").last().toIntOrNull() ?: 0
+
+                // Get Flower
+                val flowerKey = prefs.getString(key, "white_daisy") ?: "white_daisy"
+                flowerCounts[flowerKey] = flowerCounts.getOrDefault(flowerKey, 0) + 1
+
+                // Get Emotions
+                val emotionsStr = prefs.getString("emotions_$dateKey", "")
+                val dayEmotions = if (!emotionsStr.isNullOrEmpty()) emotionsStr.split(",") else emptyList()
+                dailyEmotionsMap[day] = dayEmotions
+
+                // Get Journal Text (NEW)
+                val entryText = prefs.getString("journal_$dateKey", "") ?: ""
+                combinedJournalText.append(entryText).append(" ") // Add to the big pile of text
+
+                // Calculate Daily Sentiment Score
+                var posCount = 0.0
+                dayEmotions.forEach { emo ->
+                    val clean = emo.trim().lowercase()
+                    emotionCounts[clean] = emotionCounts.getOrDefault(clean, 0) + 1
+                    if (clean in listOf("happy", "excited", "loved", "calm", "grateful")) posCount++
+                }
+                val score = if (dayEmotions.isNotEmpty()) (posCount / dayEmotions.size * 100).toInt() else 0
+                dailySentimentScores[day] = score
+            }
+
+            // 2. NEW: Actually Run the AI on the combined text
+            val (posWords, negWords) = MLProcessor.extractKeyWords(combinedJournalText.toString())
+
+            // --- Switch back to Main Thread to update UI ---
+            withContext(Dispatchers.Main) {
+                setupGardenList(flowerCounts)
+                setupEmotionsList(emotionCounts)
+                setupDailyChart(dailyEmotionsMap)
+                setupPositiveIndex(dailySentimentScores)
+
+                // 3. NEW: Display the REAL results (Top 3 words only to fit the card)
+                val posDisplay = if (posWords.isNotEmpty()) {
+                    posWords.take(3).joinToString(", ") { it.replaceFirstChar { c -> c.uppercase() } }
+                } else {
+                    "None detected"
+                }
+
+                val negDisplay = if (negWords.isNotEmpty()) {
+                    negWords.take(3).joinToString(", ") { it.replaceFirstChar { c -> c.uppercase() } }
+                } else {
+                    "None detected"
+                }
+
+                // Update the text views
+                findViewById<TextView>(R.id.tvPosWords).text = posDisplay
+                findViewById<TextView>(R.id.tvNegWords).text = negDisplay
+
+                // Set colors dynamically based on results
+                findViewById<TextView>(R.id.tvPosWords).setTextColor(Color.parseColor("#4CAF50")) // Green
+                findViewById<TextView>(R.id.tvNegWords).setTextColor(Color.parseColor("#F44336")) // Red
+            }
+        }
     }
 
     // --- 1. GARDEN SETUP ---
@@ -88,11 +165,6 @@ class StatsActivity : AppCompatActivity() {
         val container = findViewById<LinearLayout>(R.id.gardenContainer)
         container.removeAllViews()
         findViewById<TextView>(R.id.tvFlowerCount).text = "${flowers.values.sum()}"
-
-        // Click on the whole card to open dialog
-        findViewById<View>(R.id.cardGarden).setOnClickListener {
-            showGardenDialog(flowers)
-        }
 
         if (flowers.isEmpty()) {
             val empty = TextView(this)
@@ -103,8 +175,12 @@ class StatsActivity : AppCompatActivity() {
         }
 
         flowers.entries.sortedByDescending { it.value }.forEach { (key, count) ->
-            val card = createFlowerCard(key, count)
+            val card = createFlowerCard(key, count, flowers)
             container.addView(card)
+        }
+
+        findViewById<View>(R.id.cardGarden).setOnClickListener {
+            showGardenDialog(flowers)
         }
     }
 
@@ -112,7 +188,7 @@ class StatsActivity : AppCompatActivity() {
         val dialog = Dialog(this)
         dialog.setContentView(R.layout.dialog_garden)
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        val width = (resources.displayMetrics.widthPixels * 0.95).toInt()
+        val width = (resources.displayMetrics.widthPixels * 0.9).toInt()
         dialog.window?.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
 
         val container = dialog.findViewById<LinearLayout>(R.id.gardenGrid)
@@ -131,7 +207,7 @@ class StatsActivity : AppCompatActivity() {
             val img = ImageView(this)
             val info = FlowerData.flowers[key]
             img.setImageResource(info?.drawable ?: R.drawable.white_daisy)
-            img.layoutParams = LinearLayout.LayoutParams(200, 200) // Very Big Image
+            img.layoutParams = LinearLayout.LayoutParams(180, 180)
 
             val textLayout = LinearLayout(this)
             textLayout.orientation = LinearLayout.VERTICAL
@@ -139,14 +215,13 @@ class StatsActivity : AppCompatActivity() {
 
             val name = TextView(this)
             name.text = info?.name ?: "Flower"
-            name.textSize = 28f // Big Font
-            applyGamjaFont(name)
+            name.textSize = 24f
+            try { name.typeface = ResourcesCompat.getFont(this, R.font.gamja_flower) } catch (e: Exception){}
             name.setTextColor(Color.DKGRAY)
 
             val countTxt = TextView(this)
             countTxt.text = "Collected: $count"
-            countTxt.textSize = 20f
-            applyGamjaFont(countTxt)
+            countTxt.textSize = 16f
             countTxt.setTextColor(Color.GRAY)
 
             textLayout.addView(name)
@@ -159,46 +234,49 @@ class StatsActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun createFlowerCard(key: String, count: Int): View {
+    private fun createFlowerCard(key: String, count: Int, allFlowers: Map<String, Int>): View {
         val card = CardView(this)
-        val params = LinearLayout.LayoutParams(320, 450) // Bigger Card
+        val params = LinearLayout.LayoutParams(280, 400)
         params.marginEnd = 24
         card.layoutParams = params
-        card.radius = 24f
+        card.radius = 20f
         card.cardElevation = 0f
         card.setCardBackgroundColor(Color.parseColor("#F5F5F5"))
 
         val innerLayout = LinearLayout(this)
         innerLayout.orientation = LinearLayout.VERTICAL
         innerLayout.gravity = Gravity.CENTER
-        innerLayout.setPadding(0, 24, 0, 24)
+        innerLayout.setPadding(0, 20, 0, 20)
 
         val img = ImageView(this)
         val info = FlowerData.flowers[key]
         img.setImageResource(info?.drawable ?: R.drawable.white_daisy)
-        img.layoutParams = LinearLayout.LayoutParams(160, 160)
+        img.layoutParams = LinearLayout.LayoutParams(140, 140)
 
         val name = TextView(this)
         name.text = info?.name ?: "Flower"
         name.gravity = Gravity.CENTER
-        applyGamjaFont(name)
-        name.textSize = 22f
+        try { name.typeface = ResourcesCompat.getFont(this, R.font.gamja_flower) } catch (e: Exception){}
+        name.textSize = 18f
         name.setTextColor(Color.DKGRAY)
         name.setPadding(0, 16, 0, 8)
 
         val badge = TextView(this)
         badge.text = "$count"
-        badge.textSize = 14f
+        badge.textSize = 12f
         badge.setTextColor(Color.WHITE)
         badge.gravity = Gravity.CENTER
         badge.background = ResourcesCompat.getDrawable(resources, R.drawable.rounded_red_badge, null)
         badge.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.GRAY)
-        badge.layoutParams = LinearLayout.LayoutParams(70, 50)
+        badge.layoutParams = LinearLayout.LayoutParams(60, 40)
 
         innerLayout.addView(img)
         innerLayout.addView(name)
         innerLayout.addView(badge)
         card.addView(innerLayout)
+
+        card.setOnClickListener { showGardenDialog(allFlowers) }
+
         return card
     }
 
@@ -250,16 +328,18 @@ class StatsActivity : AppCompatActivity() {
         headerRow.gravity = Gravity.CENTER_VERTICAL
 
         val icon = ImageView(this)
-        var resId = resources.getIdentifier("em_$emotion", "drawable", packageName)
-        if (resId == 0) resId = resources.getIdentifier("${emotion}_chip", "drawable", packageName)
+
+        // --- OPTIMIZATION: Use Cached Lookup ---
+        val resId = FlowerData.getEmotionDrawable(this, emotion)
+
         if (resId != 0) icon.setImageResource(resId)
-        icon.layoutParams = LinearLayout.LayoutParams(70, 70).apply { marginEnd = 16 }
+        icon.layoutParams = LinearLayout.LayoutParams(60, 60).apply { marginEnd = 16 }
 
         val text = TextView(this)
         text.text = "${emotion.replaceFirstChar { it.uppercase() }} $count ($percent%)"
-        text.textSize = 22f // Bigger Font
+        text.textSize = 22f
         text.setTextColor(Color.parseColor("#333333"))
-        applyGamjaFont(text)
+        try { text.typeface = ResourcesCompat.getFont(this, R.font.gamja_flower) } catch (e: Exception){}
 
         headerRow.addView(icon)
         headerRow.addView(text)
@@ -268,7 +348,7 @@ class StatsActivity : AppCompatActivity() {
         pb.max = 100
         pb.progress = percent
         pb.progressTintList = android.content.res.ColorStateList.valueOf(getEmotionColor(emotion))
-        val pbParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 20) // Thicker Bar
+        val pbParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 20)
         pbParams.topMargin = 12
         pb.layoutParams = pbParams
 
@@ -277,7 +357,7 @@ class StatsActivity : AppCompatActivity() {
         return layout
     }
 
-    // --- 3. DAILY CHART (Thicker Bars) ---
+    // --- 3. DAILY CHART ---
     private fun setupDailyChart(dailyData: Map<Int, List<String>>) {
         val container = findViewById<LinearLayout>(R.id.dailyChartContainer)
         val avgTxt = findViewById<TextView>(R.id.tvAvgEmotions)
@@ -302,7 +382,7 @@ class StatsActivity : AppCompatActivity() {
         val barContainer = LinearLayout(this)
         barContainer.orientation = LinearLayout.VERTICAL
         barContainer.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-        val params = LinearLayout.LayoutParams(100, LinearLayout.LayoutParams.MATCH_PARENT) // Wider space
+        val params = LinearLayout.LayoutParams(100, LinearLayout.LayoutParams.MATCH_PARENT)
         params.marginEnd = 12
         barContainer.layoutParams = params
 
@@ -315,8 +395,8 @@ class StatsActivity : AppCompatActivity() {
 
         val stack = LinearLayout(this)
         stack.orientation = LinearLayout.VERTICAL
-        val height = (emotions.size * 40).coerceAtMost(500) // Taller Bars
-        stack.layoutParams = LinearLayout.LayoutParams(40, height) // Thicker Bars (40)
+        val height = (emotions.size * 40).coerceAtMost(500)
+        stack.layoutParams = LinearLayout.LayoutParams(40, height)
 
         emotions.forEach { emo ->
             val segment = View(this)
@@ -378,7 +458,7 @@ class StatsActivity : AppCompatActivity() {
 
         val bar = View(this)
         val h = (value * 5).coerceAtMost(400).coerceAtLeast(15)
-        bar.layoutParams = LinearLayout.LayoutParams(30, h) // Thicker bars (30)
+        bar.layoutParams = LinearLayout.LayoutParams(30, h)
         bar.background = ResourcesCompat.getDrawable(resources, R.drawable.rounded_corner_background, null)
         bar.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor(colorHex))
 
@@ -405,7 +485,43 @@ class StatsActivity : AppCompatActivity() {
         return Color.parseColor(hex)
     }
 
-    private fun getMonthName(monthIndex: Int): String {
-        return listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")[monthIndex]
+    // --- Helper Class for Swipe Detection ---
+    open class OnSwipeTouchListener(ctx: Context) : View.OnTouchListener {
+        private val gestureDetector = GestureDetector(ctx, GestureListener())
+
+        override fun onTouch(v: View, event: MotionEvent): Boolean {
+            if (gestureDetector.onTouchEvent(event)) return true
+            return false
+        }
+
+        private inner class GestureListener : GestureDetector.SimpleOnGestureListener() {
+            private val SWIPE_THRESHOLD = 100
+            private val SWIPE_VELOCITY_THRESHOLD = 100
+
+            override fun onDown(e: MotionEvent): Boolean {
+                return false // Don't consume simple taps so scrollview still works
+            }
+
+            override fun onFling(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                velocityX: Float,
+                velocityY: Float
+            ): Boolean {
+                if (e1 == null) return false
+                val diffY = e2.y - e1.y
+                val diffX = e2.x - e1.x
+                if (abs(diffX) > abs(diffY)) {
+                    if (abs(diffX) > SWIPE_THRESHOLD && abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                        if (diffX > 0) onSwipeRight() else onSwipeLeft()
+                        return true
+                    }
+                }
+                return false
+            }
+        }
+
+        open fun onSwipeRight() {}
+        open fun onSwipeLeft() {}
     }
 }

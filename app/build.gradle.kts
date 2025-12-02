@@ -52,6 +52,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation("androidx.appcompat:appcompat:1.6.1")
 
+    // --- MISSING DEPENDENCY ADDED HERE ---
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+
     // Jetpack Compose BOM (manages all versions)
     implementation(platform("androidx.compose:compose-bom:2024.02.00"))
 
@@ -60,6 +63,11 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    // --- REQUIRED FOR LAYOUTS & OPTIMIZATIONS ---
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.cardview:cardview:1.0.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
     // Activity Compose
     implementation("androidx.activity:activity-compose:1.9.0")
@@ -76,4 +84,3 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
-

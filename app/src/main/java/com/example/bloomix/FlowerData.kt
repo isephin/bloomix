@@ -12,8 +12,32 @@ data class FlowerInfo(
 
 object FlowerData {
 
+    // --- OPTIMIZATION: Cache for Emotion IDs to prevent laggy "getIdentifier" calls ---
+    private val emotionCache = mutableMapOf<String, Int>()
+
+    fun getEmotionDrawable(context: Context, emotionName: String): Int {
+        val key = emotionName.lowercase().trim()
+
+        // 1. Check if we already found this ID before
+        if (emotionCache.containsKey(key)) {
+            return emotionCache[key]!!
+        }
+
+        // 2. If not, look it up the slow way (only happens once per emotion)
+        var resId = context.resources.getIdentifier("em_$key", "drawable", context.packageName)
+        if (resId == 0) resId = context.resources.getIdentifier("${key}_chip", "drawable", context.packageName)
+        if (resId == 0) resId = context.resources.getIdentifier(key, "drawable", context.packageName)
+
+        // 3. Save it for next time
+        if (resId != 0) {
+            emotionCache[key] = resId
+        }
+
+        return resId
+    }
+
+    // --- ORIGINAL FLOWER DATA ---
     val flowers = mapOf(
-        // --- ORIGINAL FLOWERS ---
         "rose" to FlowerInfo(
             R.drawable.rose,
             "Red Rose",
@@ -98,8 +122,6 @@ object FlowerData {
             "Zinnias symbolize thoughts of absent friends and lasting affection.",
             "Recall one happy memory and let it warm you."
         ),
-
-        // --- NEW FLOWERS (THESE WERE MISSING) ---
         "morning_glory" to FlowerInfo(
             R.drawable.morning_glory,
             "Morning Glory",
@@ -229,7 +251,8 @@ object FlowerData {
     )
 
     fun getDrawableForName(context: Context, flowerName: String): Int {
-        val key = flowerName.lowercase()
+        // Optimized: Lowercase once and safe get
+        val key = flowerName.lowercase().trim()
         val info = flowers[key]
         return info?.drawable ?: 0
     }

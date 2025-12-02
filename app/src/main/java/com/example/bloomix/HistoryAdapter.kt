@@ -50,21 +50,20 @@ class HistoryAdapter(
 
         holder.flowerImg.setImageResource(item.flowerResId)
 
-        // --- POPULATE EMOTION ICONS (UNIQUE ONLY) ---
+        // --- POPULATE EMOTION ICONS (OPTIMIZED) ---
         holder.emotionContainer.removeAllViews()
 
         // 1. Get unique list (e.g., [happy, happy, sad] -> [happy, sad])
         val uniqueEmotions = item.emotions.map { it.lowercase().trim() }.distinct()
 
-        // 2. Show up to 4 icons (since they are unique, we can fit a few more)
+        // 2. Show up to 4 icons
         val displayCount = min(uniqueEmotions.size, 4)
 
         for (i in 0 until displayCount) {
             val emotion = uniqueEmotions[i]
 
-            var resId = context.resources.getIdentifier(emotion, "drawable", context.packageName)
-            if (resId == 0) resId = context.resources.getIdentifier("em_$emotion", "drawable", context.packageName)
-            if (resId == 0) resId = context.resources.getIdentifier("${emotion}_chip", "drawable", context.packageName)
+            // --- OPTIMIZATION: Use the cached lookup instead of getIdentifier ---
+            val resId = FlowerData.getEmotionDrawable(context, emotion)
 
             if (resId != 0) {
                 val icon = ImageView(context)

@@ -1,16 +1,16 @@
 package com.example.bloomix
 
-// import android.app.Activity // COMMENTED: No longer needed as we removed startActivityForResult
+import android.app.Activity // <--- Added this missing import
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.PorterDuff
 import android.os.Bundle
 import android.view.View
-// Removed the unused Button import, as we are now using ImageView/LinearLayout
-// import android.widget.Button
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast // Added Toast import
 import androidx.appcompat.app.AppCompatActivity
 
 class EmotionActivity : AppCompatActivity() {
@@ -22,28 +22,25 @@ class EmotionActivity : AppCompatActivity() {
     )
 
     private val flowerMap = mapOf(
-        "happy" to "marigold",
-        "sad" to "bluebell",
-        "angry" to "snapdragon",
-        "tired" to "anemone",
-        "bored" to "white_daisy",
-        "confused" to "wisteria",
-        "loved" to "rose",
-        "calm" to "lotus",
-        "excited" to "zinnia",
-        "stressed" to "black_rose",
-        "annoyed" to "azalea",
-        "shocked" to "iris"
+        "happy" to listOf("marigold", "morning_glory", "dahlia"),
+        "sad" to listOf("bluebell", "hydrangea", "lilac"),
+        "angry" to listOf("snapdragon", "black_rose"),
+        "tired" to listOf("anemone", "aloe_vera", "lavender"),
+        "bored" to listOf("white_daisy", "pansy", "cornflower"),
+        "confused" to listOf("wisteria", "iris"),
+        "loved" to listOf("rose", "gardenia", "camellia", "carnation"),
+        "calm" to listOf("lotus", "lily_of_the_valley", "white_rose"),
+        "excited" to listOf("zinnia", "freesia"),
+        "stressed" to listOf("black_rose", "edelweiss", "chamomile"),
+        "annoyed" to listOf("azalea", "red_tulip"),
+        "shocked" to listOf("iris", "cherry_blossom")
     )
 
     private val viewIdToEmotion = mutableMapOf<Int, String>()
-    // Changed to ArrayList to explicitly support duplicates and order
     private val selected = ArrayList<String>()
     private var selectedDateKey: String? = null
 
-    // private val REQUEST_CODE_SHARED = 100 // COMMENTED: No longer needed
-    private lateinit var selectedBar: LinearLayout // Reference to the bottom bar
-    private lateinit var selectedContainer: LinearLayout // New: Reference to the chip container
+    private val REQUEST_CODE_SHARED = 100
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,21 +48,25 @@ class EmotionActivity : AppCompatActivity() {
 
         selectedDateKey = intent.getStringExtra("selectedDate")
 
-        // Initialized here
-        selectedContainer = findViewById<LinearLayout>(R.id.selectedContainer)
+        val existingEmotions = intent.getStringArrayListExtra("selected_emotions")
+        if (existingEmotions != null) {
+            selected.addAll(existingEmotions)
+        }
 
-        // --- OBSOLETE VIEW REFERENCES (Kept for comment history) ---
-        // REMOVED: val btnShared = findViewById<Button>(R.id.btnShared)
-        // REMOVED: val btnJournal = findViewById<Button>(R.id.btnJournal)
-        // ----------------------------------------------------------
+        val selectedContainer = findViewById<LinearLayout>(R.id.selectedContainer)
 
-        // New UI elements
-        val llSharedEmotions = findViewById<LinearLayout>(R.id.ll_shared_emotions)
-        val btnMixEmotions = findViewById<ImageView>(R.id.btn_mix_emotions)
-        selectedBar = findViewById<LinearLayout>(R.id.selectedBar)
+        val btnReviewShared = findViewById<LinearLayout>(R.id.ll_shared_emotions)
+        val btnMixEmotions = findViewById<ImageButton>(R.id.btn_mix_emotions)
+        val btnBack = findViewById<ImageButton>(R.id.btn_back)
+        val tvEmotionCount = findViewById<TextView>(R.id.tv_emotion_count)
 
+        if (selected.isNotEmpty()) {
+            selected.forEach { emotion ->
+                addChipFor(emotion, selectedContainer)
+            }
+            updateCount(tvEmotionCount)
+        }
 
-        // Connect emotion icons and listeners
         for (emo in emotions) {
             val resId = resources.getIdentifier("em_$emo", "id", packageName)
             if (resId == 0) continue
@@ -73,27 +74,34 @@ class EmotionActivity : AppCompatActivity() {
             val iv = findViewById<ImageView>(resId)
             viewIdToEmotion[resId] = emo
 
-            iv.alpha = 1f
+            if (selected.contains(emo)) {
+                iv.setColorFilter(Color.parseColor("#99FFFFFF"), PorterDuff.Mode.SRC_ATOP)
+                iv.alpha = 0.85f
+            } else {
+                iv.alpha = 1f
+            }
 
             iv.setOnClickListener {
-                // Always ADD, now handled by refreshSelectedChips to prevent redundancy
-                addEmotion(iv, emo)
+                addEmotion(iv, emo, selectedContainer)
+                updateCount(tvEmotionCount)
             }
         }
 
-        // Listener for the back button
-        findViewById<ImageView>(R.id.btn_back).setOnClickListener { finish() }
-
-        // 1. UPDATED: Listener for the Shared Emotions container (toggle bottom bar visibility)
-        llSharedEmotions.setOnClickListener {
-            if (selected.isNotEmpty()) {
-                // Toggle visibility of the selected emotions bar
-                selectedBar.visibility = if (selectedBar.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-            }
+        btnReviewShared.setOnClickListener {
+            val intent = Intent(this, SharedEmotionsActivity::class.java)
+            intent.putStringArrayListExtra("selected", selected)
+            // Pass date key so shared activity can forward it too
+            intent.putExtra("selectedDate", selectedDateKey)
+            startActivityForResult(intent, REQUEST_CODE_SHARED)
         }
 
-        // Logic for Mix Emotions button (sends data to JournalActivity)
         btnMixEmotions.setOnClickListener {
+            // Validation
+            if (selected.isEmpty()) {
+                Toast.makeText(this, "Please select at least one emotion to bloom.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
             val chosenFlowerKey = determineFlowerKey()
             val intent = Intent(this, JournalActivity::class.java)
 
@@ -102,119 +110,102 @@ class EmotionActivity : AppCompatActivity() {
             intent.putExtra("selectedDate", selectedDateKey)
 
             startActivity(intent)
+
+            // FIX: Finish this activity so it's removed from the stack.
+            // When Journal/Result finishes, the user will drop back to Calendar.
+            finish()
+        }
+
+        btnBack.setOnClickListener {
+            finish()
         }
     }
 
-    // COMMENTED: This function is no longer needed as we removed the redirection to SharedEmotionsActivity.
-    /*
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_CODE_SHARED && resultCode == Activity.RESULT_OK) {
-            // ... (Logic to update selected list and refresh UI) ...
+            val updatedList = data?.getStringArrayListExtra("updated_selection")
+            if (updatedList != null) {
+                selected.clear()
+                val selectedContainer = findViewById<LinearLayout>(R.id.selectedContainer)
+                selectedContainer.removeAllViews()
+
+                viewIdToEmotion.forEach { (id, _) ->
+                    val iv = findViewById<ImageView>(id)
+                    iv.clearColorFilter()
+                    iv.alpha = 1f
+                }
+
+                updatedList.forEach { emo ->
+                    val resId = resources.getIdentifier("em_$emo", "id", packageName)
+                    val iv = if (resId != 0) findViewById<ImageView>(resId) else null
+
+                    selected.add(emo)
+                    addChipFor(emo, selectedContainer)
+
+                    iv?.setColorFilter(Color.parseColor("#99FFFFFF"), PorterDuff.Mode.SRC_ATOP)
+                    iv?.alpha = 0.85f
+                }
+
+                val tvEmotionCount = findViewById<TextView>(R.id.tv_emotion_count)
+                updateCount(tvEmotionCount)
+            }
         }
     }
-    */
 
-    private fun addEmotion(
-        iv: ImageView,
-        emotion: String
-    ) {
-        // 1. Add to list (duplicates allowed for counting)
+    private fun updateCount(tv: TextView?) {
+        tv?.text = "(${selected.size})"
+    }
+
+    private fun addEmotion(iv: ImageView, emotion: String, selectedContainer: LinearLayout) {
         selected.add(emotion)
-
-        // 2. Visually highlight the big icon (it stays highlighted as long as count > 0)
         iv.setColorFilter(Color.parseColor("#99FFFFFF"), PorterDuff.Mode.SRC_ATOP)
         iv.alpha = 0.85f
-
-        // 3. 2. UPDATED: Refresh the entire bottom bar (unique chips + counts)
-        refreshSelectedChips()
-
-        // selectedBar.visibility = View.VISIBLE
+        addChipFor(emotion, selectedContainer)
     }
 
-    // Function to update the emotion count in ll_shared_emotions
-    private fun updateSelectedBarCount() {
-        val countTextView = findViewById<TextView>(R.id.tv_emotion_count)
-        countTextView.text = "(${selected.size})"
+    private fun addChipFor(emotion: String, selectedContainer: LinearLayout) {
+        val chip = layoutInflater.inflate(R.layout.view_emotion_chip, selectedContainer, false)
+        val img = chip.findViewById<ImageView>(R.id.chipImage)
+        val txt = chip.findViewById<TextView>(R.id.chipLabel)
 
-        // Hide the bottom bar if the list is empty
-        if (selected.isEmpty()) {
-            selectedBar.visibility = View.GONE
-        }
-    }
+        val drawRes = resources.getIdentifier("${emotion}_chip", "drawable", packageName)
+        if (drawRes != 0) img.setImageResource(drawRes)
 
-    /**
-     * NEW CORE LOGIC: Clears the bottom bar and rebuilds it with unique chips and their counts.
-     */
-    private fun refreshSelectedChips() {
-        // 1. Clear existing views
-        selectedContainer.removeAllViews()
+        txt.text = emotion.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+        chip.tag = "chip_$emotion"
 
-        // 2. Calculate counts for all selected emotions
-        val emotionCounts = selected.groupingBy { it }.eachCount()
+        chip.setOnClickListener {
+            selected.remove(emotion)
+            selectedContainer.removeView(chip)
 
-        // 3. Rebuild chips for each unique emotion
-        emotionCounts.forEach { (emotion, count) ->
-            // Assume R.layout.view_emotion_chip exists and contains R.id.chipImage, R.id.chipLabel, and R.id.chipCount
-            val chip = layoutInflater.inflate(R.layout.view_emotion_chip, selectedContainer, false)
-            val img = chip.findViewById<ImageView>(R.id.chipImage)
-            val txt = chip.findViewById<TextView>(R.id.chipLabel)
-
-            // This TextView shows the count badge (e.g., '2' for two 'Happy' selections)
-            val countBadge = chip.findViewById<TextView>(R.id.chipCount)
-            countBadge.text = count.toString()
-
-            // Set icon and label
-            val drawRes = resources.getIdentifier("${emotion}_chip", "drawable", packageName)
-            if (drawRes != 0) img.setImageResource(drawRes)
-            txt.text = emotion.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-
-            // 4. Click Listener to decrement count (remove one instance of the emotion)
-            chip.setOnClickListener {
-                // Remove ONE instance of this emotion string
-                selected.remove(emotion)
-
-                // Recalculate and re-render the entire bar to show the new count
-                refreshSelectedChips()
-
-                // Check if we need to turn off the highlight on the main icon
-                // Only turn off if the list NO LONGER contains this emotion
-                if (!selected.contains(emotion)) {
-                    val ivId = resources.getIdentifier("em_$emotion", "id", packageName)
-                    if (ivId != 0) {
-                        val iv = findViewById<ImageView>(ivId)
-                        iv.clearColorFilter()
-                        iv.alpha = 1f
-                    }
+            if (!selected.contains(emotion)) {
+                val ivId = resources.getIdentifier("em_$emotion", "id", packageName)
+                if (ivId != 0) {
+                    val iv = findViewById<ImageView>(ivId)
+                    iv.clearColorFilter()
+                    iv.alpha = 1f
                 }
             }
 
-            selectedContainer.addView(chip)
+            val tvEmotionCount = findViewById<TextView>(R.id.tv_emotion_count)
+            updateCount(tvEmotionCount)
         }
-
-        // 5. Update the main counter and bar visibility
-        updateSelectedBarCount()
+        selectedContainer.addView(chip)
     }
-
-    // COMMENTED: Obsolete function, replaced by refreshSelectedChips()
-    /*
-    private fun addChipFor(emotion: String, selectedContainer: LinearLayout) {
-        // ... original redundant chip creation logic ...
-    }
-    */
-
-    // COMMENTED: Obsolete function
-    /*
-    private fun removeChipFor(emotion: String, selectedContainer: LinearLayout) {
-        // ... original chip removal logic ...
-    }
-    */
 
     private fun determineFlowerKey(): String {
-        if (selected.isEmpty()) return "white_daisy"
+        if (selected.isEmpty()) {
+            return flowerMap.values.flatten().random()
+        }
 
-        // Find the most frequent emotion
         val mostFrequent = selected.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
-        return flowerMap[mostFrequent] ?: "white_daisy"
+        val possibleFlowers = flowerMap[mostFrequent]
+
+        return if (possibleFlowers != null && possibleFlowers.isNotEmpty()) {
+            possibleFlowers.random()
+        } else {
+            flowerMap.values.flatten().random()
+        }
     }
 }

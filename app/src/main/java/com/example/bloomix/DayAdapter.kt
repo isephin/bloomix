@@ -29,10 +29,11 @@ class DayAdapter(
 
     override fun onBindViewHolder(holder: DayViewHolder, position: Int) {
         val model = days[position]
+
         if (model.dayNumber == null) {
-            // empty placeholder
+            // Empty slot
             holder.dayNumberText.text = ""
-            holder.flowerIv.visibility = View.GONE
+            holder.flowerIv.visibility = View.INVISIBLE
             holder.itemView.setOnClickListener(null)
             holder.itemView.isClickable = false
         } else {
@@ -42,18 +43,22 @@ class DayAdapter(
                 model.dateKey?.let { dk -> listener.onDayClicked(dk) }
             }
 
-            // Show flower if saved
             val flowerName = model.dateKey?.let { flowersMap[it] }
+
             if (flowerName != null) {
+                // Entry Exists -> Show Real Flower
                 val drawableId = FlowerData.getDrawableForName(holder.itemView.context, flowerName)
                 if (drawableId != 0) {
                     holder.flowerIv.setImageResource(drawableId)
                     holder.flowerIv.visibility = View.VISIBLE
                 } else {
-                    holder.flowerIv.visibility = View.GONE
+                    // Fallback if drawable missing -> Hide it
+                    holder.flowerIv.visibility = View.INVISIBLE
                 }
             } else {
-                holder.flowerIv.visibility = View.GONE
+                // No Entry -> Hide Flower (Blank Space)
+                holder.flowerIv.setImageDrawable(null)
+                holder.flowerIv.visibility = View.INVISIBLE
             }
         }
     }

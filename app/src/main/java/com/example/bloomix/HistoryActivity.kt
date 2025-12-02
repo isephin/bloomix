@@ -10,6 +10,10 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -35,7 +39,7 @@ class HistoryActivity : AppCompatActivity() {
 
         title = findViewById(R.id.tvHistoryTitle)
         rvHistory = findViewById(R.id.rvHistory)
-        tvEmptyState = findViewById(R.id.tvEmptyState) // Make sure this ID exists in XML (added below)
+        tvEmptyState = findViewById(R.id.tvEmptyState)
 
         findViewById<ImageButton>(R.id.btnBack).setOnClickListener { finish() }
 
@@ -73,28 +77,32 @@ class HistoryActivity : AppCompatActivity() {
         loadEntriesForMonth()
     }
 
+    // --- OPTIMIZATION: Load data in Background Thread ---
     private fun loadEntriesForMonth() {
-        // Update Title: "2025.11" (Display month is 1-based)
+        // Update Title immediately (UI operation)
         title.text = "$currentYear.${String.format("%02d", currentMonth + 1)}"
 
-        // Filter and Load Data
-        val historyList = getEntriesFor(currentYear, currentMonth)
+        // Switch to Background Thread for heavy lifting
+        CoroutineScope(Dispatchers.IO).launch {
+            val historyList = getEntriesFor(currentYear, currentMonth)
 
-        // Ensure we check for the empty state view, if it was added to XML
-        if (historyList.isEmpty()) {
-            rvHistory.visibility = View.GONE
-            // Only toggle if the view exists
-            try {
-                findViewById<View>(R.id.tvEmptyState)?.visibility = View.VISIBLE
-            } catch (e: Exception) {}
-        } else {
-            rvHistory.visibility = View.VISIBLE
-            try {
-                findViewById<View>(R.id.tvEmptyState)?.visibility = View.GONE
-            } catch (e: Exception) {}
+            // Switch back to Main Thread to update UI
+            withContext(Dispatchers.Main) {
+                if (historyList.isEmpty()) {
+                    rvHistory.visibility = View.GONE
+                    try {
+                        tvEmptyState.visibility = View.VISIBLE
+                    } catch (e: Exception) {}
+                } else {
+                    rvHistory.visibility = View.VISIBLE
+                    try {
+                        tvEmptyState.visibility = View.GONE
+                    } catch (e: Exception) {}
 
-            rvHistory.adapter = HistoryAdapter(historyList) { item ->
-                openResult(item)
+                    rvHistory.adapter = HistoryAdapter(historyList) { item ->
+                        openResult(item)
+                    }
+                }
             }
         }
     }
@@ -121,40 +129,31 @@ class HistoryActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
+    // Heavy processing (Moved to background by loadEntriesForMonth)
     private fun getEntriesFor(year: Int, month: Int): List<HistoryItem> {
         val prefs = getSharedPreferences("journal_data", MODE_PRIVATE)
         val allEntries = prefs.all
         val list = mutableListOf<HistoryItem>()
 
-        val parser = SimpleDateFormat("yyyy-M-d", Locale.getDefault())
         val dayFormatter = SimpleDateFormat("d", Locale.getDefault())
         val nameFormatter = SimpleDateFormat("EEE", Locale.getDefault())
         val headerFormatter = SimpleDateFormat("yyyy.MM", Locale.getDefault())
+        val parser = SimpleDateFormat("yyyy-M-d", Locale.getDefault())
 
-        // KEY FORMAT: "flower_2025-11-"
-        // Calendar month is 0-11. Database month is 1-12.
-        // So we search for keys starting with "flower_2025-11-"
+        // Search Prefix: "flower_2025-11-"
         val searchPrefix = "flower_$year-${month + 1}-"
 
         allEntries.keys.forEach { key ->
             if (key.startsWith(searchPrefix)) {
                 val dateKey = key.removePrefix("flower_")
-
-                // IMPORTANT: Ensure we don't accidentally match "11-" when searching for "1-"
-                // For example, searching for "2025-1-" should not match "2025-11-..."
-                // Since our day keys are like "2025-1-5", the prefix check "$year-${month+1}-" is safe
-                // because of the trailing hyphen.
-
                 val flowerKey = prefs.getString(key, "white_daisy") ?: "white_daisy"
                 val emotionsStr = prefs.getString("emotions_$dateKey", "")
                 val emotions = if (emotionsStr.isNullOrEmpty()) emptyList() else emotionsStr.split(",")
 
                 try {
-                    // Try parsing the date key to build the item
                     val date = try {
                         parser.parse(dateKey)
                     } catch (e: Exception) {
-                        // Fallback parsing
                         SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateKey)
                     } ?: Date()
 
@@ -187,7 +186,6 @@ class HistoryActivity : AppCompatActivity() {
         private val gestureDetector = GestureDetector(ctx, GestureListener())
 
         override fun onTouch(v: View, event: MotionEvent): Boolean {
-            // Need to return true if consumed, but false if we want click events on children to work
             return gestureDetector.onTouchEvent(event)
         }
 
@@ -196,7 +194,7 @@ class HistoryActivity : AppCompatActivity() {
             private val SWIPE_VELOCITY_THRESHOLD = 100
 
             override fun onDown(e: MotionEvent): Boolean {
-                return true // Necessary for gesture detector to start
+                return true
             }
 
             override fun onFling(
@@ -211,9 +209,9 @@ class HistoryActivity : AppCompatActivity() {
                 if (abs(diffX) > abs(diffY)) {
                     if (abs(diffX) > SWIPE_THRESHOLD && abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
                         if (diffX > 0) {
-                            onSwipeRight() // Swipe Right -> Previous Month
+                            onSwipeRight()
                         } else {
-                            onSwipeLeft() // Swipe Left -> Next Month
+                            onSwipeLeft()
                         }
                         return true
                     }
