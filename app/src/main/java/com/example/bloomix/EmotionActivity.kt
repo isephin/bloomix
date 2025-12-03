@@ -1,10 +1,10 @@
 package com.example.bloomix
 
-import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.PorterDuff
 import android.os.Bundle
+import android.view.View
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -14,206 +14,159 @@ import androidx.appcompat.app.AppCompatActivity
 
 class EmotionActivity : AppCompatActivity() {
 
-    // List of supported emotions. These match the IDs in our layout (e.g., em_happy).
     private val emotions = listOf(
         "happy","sad","excited","angry",
         "tired","bored","confused","loved",
         "calm","shocked","annoyed","stressed"
     )
 
-    // Maps the Android View ID (int) to the emotion string name (e.g., R.id.em_happy -> "happy")
+    // REMOVED: private val flowerMap ... (Logic moved to FlowerData.kt)
+
     private val viewIdToEmotion = mutableMapOf<Int, String>()
-
-    // Stores the list of emotions the user has selected so far
-    private val selected = ArrayList<String>()
-
-    // Holds the date passed from the Calendar, so we know which day we are journaling for
+    private val selected = ArrayList<String>() // ArrayList supports duplicates for counting
     private var selectedDateKey: String? = null
 
-    // Request code to identify when the user comes back from the "Shared/Review" screen
-    private val REQUEST_CODE_SHARED = 100
+    // UI References
+    private lateinit var selectedBar: LinearLayout
+    private lateinit var selectedContainer: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_emotion)
 
-        // 1. Retrieve the date key passed from CalendarActivity
         selectedDateKey = intent.getStringExtra("selectedDate")
 
-        // 2. Check if we have pre-existing emotions passed back (e.g., if editing an entry)
-        val existingEmotions = intent.getStringArrayListExtra("selected_emotions")
-        if (existingEmotions != null) {
-            selected.addAll(existingEmotions)
-        }
+        // Initialize UI References
+        selectedContainer = findViewById(R.id.selectedContainer)
+        selectedBar = findViewById(R.id.selectedBar) // The bottom bar that is initially hidden
 
-        // 3. Initialize UI references
-        val selectedContainer = findViewById<LinearLayout>(R.id.selectedContainer) // The bar at the bottom
-        val btnReviewShared = findViewById<LinearLayout>(R.id.ll_shared_emotions) // The "Shared Emotions" button
-        val btnMixEmotions = findViewById<ImageButton>(R.id.btn_mix_emotions)     // The "Flower Vase" button (Next)
-        val btnBack = findViewById<ImageButton>(R.id.btn_back)                    // Back button
-        val tvEmotionCount = findViewById<TextView>(R.id.tv_emotion_count)        // Text showing "(3)" count
+        val llSharedEmotions = findViewById<LinearLayout>(R.id.ll_shared_emotions) // The button to toggle the bar
+        val btnMixEmotions = findViewById<ImageButton>(R.id.btn_mix_emotions)
+        val btnBack = findViewById<ImageButton>(R.id.btn_back)
 
-        // 4. If we have existing emotions (edit mode), populate the UI chips immediately
-        if (selected.isNotEmpty()) {
-            selected.forEach { emotion ->
-                addChipFor(emotion, selectedContainer)
-            }
-            updateCount(tvEmotionCount)
-        }
-
-        // 5. Loop through all supported emotions to set up their click listeners
+        // Connect emotion icons and listeners
         for (emo in emotions) {
-            // Dynamically find the ID (e.g., R.id.em_happy) based on the string name
             val resId = resources.getIdentifier("em_$emo", "id", packageName)
-            if (resId == 0) continue // Skip if ID is not found
+            if (resId == 0) continue
 
             val iv = findViewById<ImageView>(resId)
             viewIdToEmotion[resId] = emo
 
-            // If this emotion is already selected, visually dim it to indicate selection
-            if (selected.contains(emo)) {
-                iv.setColorFilter(Color.parseColor("#99FFFFFF"), PorterDuff.Mode.SRC_ATOP)
-                iv.alpha = 0.85f
-            } else {
-                // Otherwise ensure it looks normal
-                iv.alpha = 1f
-            }
+            iv.alpha = 1f
 
-            // Set the click listener for the emotion icon
             iv.setOnClickListener {
-                addEmotion(iv, emo, selectedContainer)
-                updateCount(tvEmotionCount)
+                addEmotion(iv, emo)
             }
         }
 
-        // 6. Listener for "Shared Emotions" button (Review screen)
-        btnReviewShared.setOnClickListener {
-            val intent = Intent(this, SharedEmotionsActivity::class.java)
-            // Pass the current list of selected emotions
-            intent.putStringArrayListExtra("selected", selected)
-            // Pass date key so shared activity can forward it if needed
-            intent.putExtra("selectedDate", selectedDateKey)
-            // Start activity and wait for result (in case user deletes chips there)
-            startActivityForResult(intent, REQUEST_CODE_SHARED)
+        // Back Button
+        btnBack.setOnClickListener { finish() }
+
+        // --- TOGGLE LOGIC (Restored from your snippet) ---
+        // The bar does NOT pop up automatically. It only toggles when this is clicked.
+        llSharedEmotions.setOnClickListener {
+            if (selected.isNotEmpty()) {
+                // Toggle visibility: If visible -> Hide. If hidden -> Show.
+                selectedBar.visibility = if (selectedBar.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            }
         }
 
-        // 7. Listener for "Mix Emotions" (Next / Flower Vase) button
+        // --- MIX EMOTIONS LOGIC (Proceed to Journal) ---
         btnMixEmotions.setOnClickListener {
-            // Validation: User must select at least one emotion
             if (selected.isEmpty()) {
-                Toast.makeText(this, "Please select at least one emotion to bloom.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Please select at least one emotion.", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            // --- KEY CHANGE: Use the centralized FlowerData logic to pick the flower ---
+            // Use FlowerData to decide the flower
             val chosenFlowerKey = FlowerData.determineFlower(selected)
 
-            // Prepare to move to JournalActivity
             val intent = Intent(this, JournalActivity::class.java)
             intent.putStringArrayListExtra("selected_emotions", selected)
-            intent.putExtra("flower_key", chosenFlowerKey) // Pass the determined flower
+            intent.putExtra("flower_key", chosenFlowerKey)
             intent.putExtra("selectedDate", selectedDateKey)
 
             startActivity(intent)
-
-            // Finish this activity so the user can't go "Back" to it easily after journaling
-            finish()
+            finish() // Close screen
         }
+    }
 
-        // 8. Back button listener
-        btnBack.setOnClickListener {
-            finish()
+    private fun addEmotion(iv: ImageView, emotion: String) {
+        // 1. Add to list
+        selected.add(emotion)
+
+        // 2. Visually highlight the big icon
+        iv.setColorFilter(Color.parseColor("#99FFFFFF"), PorterDuff.Mode.SRC_ATOP)
+        iv.alpha = 0.85f
+
+        // 3. Update the chips (data), but DO NOT force the bar to appear.
+        refreshSelectedChips()
+
+        // Note: We removed "selectedBar.visibility = View.VISIBLE" so it stays hidden until clicked.
+    }
+
+    private fun updateSelectedBarCount() {
+        val countTextView = findViewById<TextView>(R.id.tv_emotion_count)
+        // Update the text like "(3)"
+        countTextView.text = "(${selected.size})"
+
+        // If list is empty, we must hide the bar because there is nothing to show
+        if (selected.isEmpty()) {
+            selectedBar.visibility = View.GONE
         }
     }
 
     /**
-     * Handles the result when returning from SharedEmotionsActivity.
-     * Use case: User deleted some emotions in the review screen.
+     * Rebuilds the chip list. Handles grouping (e.g. "Happy (2)").
      */
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_CODE_SHARED && resultCode == Activity.RESULT_OK) {
-            // Get the updated list from the result intent
-            val updatedList = data?.getStringArrayListExtra("updated_selection")
-            if (updatedList != null) {
-                // Clear current local selection
-                selected.clear()
-                val selectedContainer = findViewById<LinearLayout>(R.id.selectedContainer)
-                selectedContainer.removeAllViews()
+    private fun refreshSelectedChips() {
+        // 1. Clear existing
+        selectedContainer.removeAllViews()
 
-                // Reset all main grid icons to "unselected" state first
-                viewIdToEmotion.forEach { (id, _) ->
-                    val iv = findViewById<ImageView>(id)
-                    iv.clearColorFilter()
-                    iv.alpha = 1f
-                }
+        // 2. Group counts: { "happy": 2, "sad": 1 }
+        val emotionCounts = selected.groupingBy { it }.eachCount()
 
-                // Re-populate based on the updated list
-                updatedList.forEach { emo ->
-                    val resId = resources.getIdentifier("em_$emo", "id", packageName)
-                    val iv = if (resId != 0) findViewById<ImageView>(resId) else null
+        // 3. Create Chips
+        emotionCounts.forEach { (emotion, count) ->
+            val chip = layoutInflater.inflate(R.layout.view_emotion_chip, selectedContainer, false)
+            val img = chip.findViewById<ImageView>(R.id.chipImage)
+            val txt = chip.findViewById<TextView>(R.id.chipLabel)
+            val countBadge = chip.findViewById<TextView>(R.id.chipCount)
 
-                    selected.add(emo)
-                    addChipFor(emo, selectedContainer) // Re-add chips to bottom bar
+            // Set Image
+            val drawRes = resources.getIdentifier("${emotion}_chip", "drawable", packageName)
+            if (drawRes != 0) img.setImageResource(drawRes)
 
-                    // Visually dim the icon again since it is still selected
-                    iv?.setColorFilter(Color.parseColor("#99FFFFFF"), PorterDuff.Mode.SRC_ATOP)
-                    iv?.alpha = 0.85f
-                }
+            // Set Text
+            txt.text = emotion.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 
-                val tvEmotionCount = findViewById<TextView>(R.id.tv_emotion_count)
-                updateCount(tvEmotionCount)
-            }
-        }
-    }
-
-    /** Helper to update the "(3)" count text. */
-    private fun updateCount(tv: TextView?) {
-        tv?.text = "(${selected.size})"
-    }
-
-    /** Adds an emotion to the list and dims the icon. */
-    private fun addEmotion(iv: ImageView, emotion: String, selectedContainer: LinearLayout) {
-        selected.add(emotion)
-        // Dim the icon to show it is active
-        iv.setColorFilter(Color.parseColor("#99FFFFFF"), PorterDuff.Mode.SRC_ATOP)
-        iv.alpha = 0.85f
-        // Create the small chip in the bottom bar
-        addChipFor(emotion, selectedContainer)
-    }
-
-    /** Dynamically creates a chip view (small icon + text) for the bottom bar. */
-    private fun addChipFor(emotion: String, selectedContainer: LinearLayout) {
-        val chip = layoutInflater.inflate(R.layout.view_emotion_chip, selectedContainer, false)
-        val img = chip.findViewById<ImageView>(R.id.chipImage)
-        val txt = chip.findViewById<TextView>(R.id.chipLabel)
-
-        // Load the chip image resource
-        val drawRes = resources.getIdentifier("${emotion}_chip", "drawable", packageName)
-        if (drawRes != 0) img.setImageResource(drawRes)
-
-        // Capitalize the first letter (e.g., "happy" -> "Happy")
-        txt.text = emotion.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-        chip.tag = "chip_$emotion"
-
-        // Clicking the chip removes it from selection
-        chip.setOnClickListener {
-            selected.remove(emotion)
-            selectedContainer.removeView(chip)
-
-            // If the emotion is fully removed (not in list anymore), reset the main grid icon
-            if (!selected.contains(emotion)) {
-                val ivId = resources.getIdentifier("em_$emotion", "id", packageName)
-                if (ivId != 0) {
-                    val iv = findViewById<ImageView>(ivId)
-                    iv.clearColorFilter() // Remove dimming
-                    iv.alpha = 1f
-                }
+            // Set Badge Count (Only if > 1)
+            if (count > 1) {
+                countBadge.text = count.toString()
+                countBadge.visibility = View.VISIBLE
+            } else {
+                countBadge.visibility = View.GONE
             }
 
-            val tvEmotionCount = findViewById<TextView>(R.id.tv_emotion_count)
-            updateCount(tvEmotionCount)
+            // Click to remove
+            chip.setOnClickListener {
+                selected.remove(emotion) // Remove one instance
+
+                // If completely removed, reset the main icon highlight
+                if (!selected.contains(emotion)) {
+                    val ivId = resources.getIdentifier("em_$emotion", "id", packageName)
+                    if (ivId != 0) {
+                        val iv = findViewById<ImageView>(ivId)
+                        iv.clearColorFilter()
+                        iv.alpha = 1f
+                    }
+                }
+                refreshSelectedChips()
+            }
+            selectedContainer.addView(chip)
         }
-        selectedContainer.addView(chip)
+
+        // 4. Update the count text (and hide bar if empty)
+        updateSelectedBarCount()
     }
 }

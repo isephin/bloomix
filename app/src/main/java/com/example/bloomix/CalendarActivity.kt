@@ -216,22 +216,24 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
         }
     }
 
-    // Calculates the "Empty Cells" needed before the 1st of the month
+    /**
+     * Calculates the days and empty padding for the grid.
+     */
     private fun generateMonthDays(year: Int, month: Int) {
         daysList.clear()
         val cal = Calendar.getInstance()
         cal.set(year, month, 1) // Set to the 1st of the month
 
-        val firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK) // 1=Sun, 2=Mon...
+        val firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK) // 1=Sun, 2=Mon ... 7=Sat
         val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
 
-        // Calculate how many blank spaces to add before day 1
-        val offset = when (firstDayOfWeek) {
-            Calendar.SUNDAY -> 6 // Optional: Adjust based on your preferred week start
-            else -> firstDayOfWeek - 2
-        }
 
-        // Add empty placeholders
+        // If 1st is Sunday (1), offset = 0.
+        // If 1st is Saturday (7), offset = 6.
+        // Formula: day_of_week - 1
+        val offset = firstDayOfWeek - 1
+
+        // Add empty placeholders for the days before the 1st
         for (i in 0 until offset) daysList.add(DayModel(null, null))
 
         // Add actual days
