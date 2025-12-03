@@ -8,12 +8,10 @@ import android.view.View
 import android.widget.ImageButton
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope // <--- Import
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch // <--- Import
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -33,7 +31,6 @@ class HistoryActivity : AppCompatActivity() {
         setContentView(R.layout.activity_history)
 
         val cal = Calendar.getInstance()
-        // Get month/year from Intent or default to Today
         currentYear = intent.getIntExtra("year", cal.get(Calendar.YEAR))
         currentMonth = intent.getIntExtra("month", cal.get(Calendar.MONTH))
 
@@ -42,26 +39,24 @@ class HistoryActivity : AppCompatActivity() {
         tvEmptyState = findViewById(R.id.tvEmptyState)
 
         findViewById<ImageButton>(R.id.btnBack).setOnClickListener { finish() }
-
         findViewById<ImageButton>(R.id.btnPrevMonth).setOnClickListener { changeMonth(-1) }
         findViewById<ImageButton>(R.id.btnNextMonth).setOnClickListener { changeMonth(1) }
 
-        // Setup Recycler View
         rvHistory.layoutManager = LinearLayoutManager(this)
 
-        // Add Swipe Listener
         val swipeListener = object : OnSwipeTouchListener(this@HistoryActivity) {
-            override fun onSwipeRight() {
-                changeMonth(-1) // Previous Month
-            }
-            override fun onSwipeLeft() {
-                changeMonth(1) // Next Month
-            }
+            override fun onSwipeRight() { changeMonth(-1) }
+            override fun onSwipeLeft() { changeMonth(1) }
         }
         rvHistory.setOnTouchListener(swipeListener)
-        // Allow swiping on empty areas too
         findViewById<View>(android.R.id.content).setOnTouchListener(swipeListener)
 
+        loadEntriesForMonth()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh list in case something was deleted in ResultActivity
         loadEntriesForMonth()
     }
 
@@ -77,149 +72,98 @@ class HistoryActivity : AppCompatActivity() {
         loadEntriesForMonth()
     }
 
-    // --- OPTIMIZATION: Load data in Background Thread ---
     private fun loadEntriesForMonth() {
-        // Update Title immediately (UI operation)
         title.text = "$currentYear.${String.format("%02d", currentMonth + 1)}"
 
-        // Switch to Background Thread for heavy lifting
-        CoroutineScope(Dispatchers.IO).launch {
-            val historyList = getEntriesFor(currentYear, currentMonth)
+        // --- DATABASE FETCH ---
+        lifecycleScope.launch {
+            val entries = AppDatabase.getDatabase(applicationContext)
+                .journalDao()
+                .getEntriesForMonth(currentYear, currentMonth)
 
-            // Switch back to Main Thread to update UI
-            withContext(Dispatchers.Main) {
-                if (historyList.isEmpty()) {
-                    rvHistory.visibility = View.GONE
-                    try {
-                        tvEmptyState.visibility = View.VISIBLE
-                    } catch (e: Exception) {}
-                } else {
-                    rvHistory.visibility = View.VISIBLE
-                    try {
-                        tvEmptyState.visibility = View.GONE
-                    } catch (e: Exception) {}
+            if (entries.isEmpty()) {
+                rvHistory.visibility = View.GONE
+                tvEmptyState.visibility = View.VISIBLE
+            } else {
+                rvHistory.visibility = View.VISIBLE
+                tvEmptyState.visibility = View.GONE
 
-                    rvHistory.adapter = HistoryAdapter(historyList) { item ->
-                        openResult(item)
-                    }
+                // Convert Database Entities to HistoryItems for the Adapter
+                val historyItems = entries.map { entry ->
+                    val date = try {
+                        SimpleDateFormat("yyyy-M-d", Locale.getDefault()).parse(entry.dateKey)
+                    } catch (e: Exception) { Date() } ?: Date()
+
+                    val dayFormatter = SimpleDateFormat("d", Locale.getDefault())
+                    val nameFormatter = SimpleDateFormat("EEE", Locale.getDefault())
+                    val headerFormatter = SimpleDateFormat("yyyy.MM", Locale.getDefault())
+
+                    val flowerName = FlowerData.flowers[entry.flowerKey]?.name ?: "Flower"
+                    val flowerRes = FlowerData.flowers[entry.flowerKey]?.drawable ?: R.drawable.white_daisy
+                    val emotionList = if (entry.emotions.isNotEmpty()) entry.emotions.split(",") else emptyList()
+
+                    HistoryItem(
+                        dateKey = entry.dateKey,
+                        dateObj = date,
+                        dayNumber = dayFormatter.format(date),
+                        dayName = nameFormatter.format(date),
+                        monthYear = headerFormatter.format(date),
+                        flowerName = flowerName,
+                        flowerResId = flowerRes,
+                        emotions = emotionList
+                    )
+                }
+
+                rvHistory.adapter = HistoryAdapter(historyItems) { item ->
+                    openResult(item)
                 }
             }
         }
     }
 
     private fun openResult(item: HistoryItem) {
-        val intent = Intent(this, FlowerResultActivity::class.java)
+        // We need to fetch the FULL details (journal text, reflection) from DB to pass to the next screen
+        lifecycleScope.launch {
+            val entry = AppDatabase.getDatabase(applicationContext)
+                .journalDao()
+                .getEntryByDate(item.dateKey)
 
-        val prefs = getSharedPreferences("journal_data", MODE_PRIVATE)
-        val journalText = prefs.getString("journal_${item.dateKey}", "")
-        val sentiment = prefs.getString("sentiment_${item.dateKey}", "NEUTRAL")
-        val category = prefs.getString("category_${item.dateKey}", "Complex")
-        val reflection = prefs.getString("reflection_${item.dateKey}", "")
-        val microAction = prefs.getString("micro_action_desc_${item.dateKey}", "")
-
-        intent.putExtra("selectedDate", item.dateKey)
-        intent.putExtra("flower_key", getFlowerKeyFromName(item.flowerName))
-        intent.putExtra("journal_text", journalText)
-        intent.putExtra("sentiment", sentiment)
-        intent.putExtra("category", category)
-        intent.putExtra("reflection", reflection)
-        intent.putExtra("micro_action_desc", microAction)
-        intent.putStringArrayListExtra("selected", ArrayList(item.emotions))
-
-        startActivity(intent)
-    }
-
-    // Heavy processing (Moved to background by loadEntriesForMonth)
-    private fun getEntriesFor(year: Int, month: Int): List<HistoryItem> {
-        val prefs = getSharedPreferences("journal_data", MODE_PRIVATE)
-        val allEntries = prefs.all
-        val list = mutableListOf<HistoryItem>()
-
-        val dayFormatter = SimpleDateFormat("d", Locale.getDefault())
-        val nameFormatter = SimpleDateFormat("EEE", Locale.getDefault())
-        val headerFormatter = SimpleDateFormat("yyyy.MM", Locale.getDefault())
-        val parser = SimpleDateFormat("yyyy-M-d", Locale.getDefault())
-
-        // Search Prefix: "flower_2025-11-"
-        val searchPrefix = "flower_$year-${month + 1}-"
-
-        allEntries.keys.forEach { key ->
-            if (key.startsWith(searchPrefix)) {
-                val dateKey = key.removePrefix("flower_")
-                val flowerKey = prefs.getString(key, "white_daisy") ?: "white_daisy"
-                val emotionsStr = prefs.getString("emotions_$dateKey", "")
-                val emotions = if (emotionsStr.isNullOrEmpty()) emptyList() else emotionsStr.split(",")
-
-                try {
-                    val date = try {
-                        parser.parse(dateKey)
-                    } catch (e: Exception) {
-                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateKey)
-                    } ?: Date()
-
-                    val flowerInfo = FlowerData.flowers[flowerKey]
-
-                    list.add(HistoryItem(
-                        dateKey = dateKey,
-                        dateObj = date,
-                        dayNumber = dayFormatter.format(date),
-                        dayName = nameFormatter.format(date),
-                        monthYear = headerFormatter.format(date),
-                        flowerName = flowerInfo?.name ?: "Flower",
-                        flowerResId = flowerInfo?.drawable ?: R.drawable.white_daisy,
-                        emotions = emotions
-                    ))
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+            if (entry != null) {
+                val intent = Intent(this@HistoryActivity, FlowerResultActivity::class.java)
+                intent.putExtra("selectedDate", entry.dateKey)
+                intent.putExtra("flower_key", entry.flowerKey)
+                intent.putExtra("journal_text", entry.journalText)
+                intent.putExtra("sentiment", entry.sentiment)
+                intent.putExtra("category", entry.moodCategory)
+                intent.putExtra("reflection", entry.reflection)
+                intent.putExtra("micro_action_desc", entry.microAction)
+                intent.putStringArrayListExtra("selected", ArrayList(item.emotions))
+                startActivity(intent)
             }
         }
-        return list.sortedByDescending { it.dateObj }
     }
 
-    private fun getFlowerKeyFromName(name: String): String {
-        return FlowerData.flowers.entries.find { it.value.name == name }?.key ?: "white_daisy"
-    }
-
-    // --- Inner Class for Swipe Detection ---
+    // --- SWIPE LISTENER HELPER ---
     open class OnSwipeTouchListener(ctx: android.content.Context) : View.OnTouchListener {
         private val gestureDetector = GestureDetector(ctx, GestureListener())
-
-        override fun onTouch(v: View, event: MotionEvent): Boolean {
-            return gestureDetector.onTouchEvent(event)
-        }
-
+        override fun onTouch(v: View, event: MotionEvent): Boolean { return gestureDetector.onTouchEvent(event) }
         private inner class GestureListener : GestureDetector.SimpleOnGestureListener() {
             private val SWIPE_THRESHOLD = 100
             private val SWIPE_VELOCITY_THRESHOLD = 100
-
-            override fun onDown(e: MotionEvent): Boolean {
-                return true
-            }
-
-            override fun onFling(
-                e1: MotionEvent?,
-                e2: MotionEvent,
-                velocityX: Float,
-                velocityY: Float
-            ): Boolean {
+            override fun onDown(e: MotionEvent): Boolean { return true }
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, vX: Float, vY: Float): Boolean {
                 if (e1 == null) return false
                 val diffY = e2.y - e1.y
                 val diffX = e2.x - e1.x
                 if (abs(diffX) > abs(diffY)) {
-                    if (abs(diffX) > SWIPE_THRESHOLD && abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
-                        if (diffX > 0) {
-                            onSwipeRight()
-                        } else {
-                            onSwipeLeft()
-                        }
+                    if (abs(diffX) > SWIPE_THRESHOLD && abs(vX) > SWIPE_VELOCITY_THRESHOLD) {
+                        if (diffX > 0) onSwipeRight() else onSwipeLeft()
                         return true
                     }
                 }
                 return false
             }
         }
-
         open fun onSwipeRight() {}
         open fun onSwipeLeft() {}
     }

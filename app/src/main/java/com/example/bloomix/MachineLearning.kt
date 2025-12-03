@@ -7,10 +7,23 @@ import kotlin.math.sqrt
 // TEXT PREPROCESSOR UTILITIES
 // -----------------------------
 object TextPreprocessor {
+    // UPDATED: Added "with", "about", "from", "as", "if", "can" to prevent them from appearing as keywords
     private val stopwords = setOf(
-        "the", "is", "in", "at", "of", "a", "an", "and", "or", "to", "for", "on", "it",
-        "this", "that", "i", "you", "we", "they", "he", "she", "was", "are", "be", "by",
-        "my", "me", "so", "very", "just", "but"
+        "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours",
+        "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers",
+        "herself", "it", "its", "itself", "they", "them", "their", "theirs", "themselves",
+        "what", "which", "who", "whom", "this", "that", "these", "those", "am", "is", "are",
+        "was", "were", "be", "been", "being", "have", "has", "had", "having", "do", "does",
+        "did", "doing", "a", "an", "the", "and", "but", "if", "or", "because", "as", "until",
+        "while", "of", "at", "by", "for", "with", "about", "against", "between", "into",
+        "through", "during", "before", "after", "above", "below", "to", "from", "up", "down",
+        "in", "out", "on", "off", "over", "under", "again", "further", "then", "once", "here",
+        "there", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more",
+        "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so",
+        "than", "too", "very", "s", "t", "can", "will", "just", "don", "should", "now",
+        "d", "ll", "m", "o", "re", "ve", "y", "ain", "aren", "couldn", "didn", "doesn",
+        "hadn", "hasn", "haven", "isn", "ma", "mightn", "mustn", "needn", "shan", "shouldn",
+        "wasn", "weren", "won", "wouldn"
     )
 
     private val emojiTokens = mapOf(
@@ -105,6 +118,7 @@ class NaiveBayesClassifier(
     }
 
     fun finalizeTraining() {
+        // Changed to use the passed minWordFreq, though usually we might want to capture all for small datasets
         vocab = docFreq.filter { it.value >= minWordFreq }.keys.toMutableSet()
 
         for (s in Sentiment.values()) {
@@ -180,21 +194,28 @@ class NaiveBayesClassifier(
         val positives = mutableListOf<String>()
         val negatives = mutableListOf<String>()
 
-        // Simple logic: Check if word weight is significantly higher in one class than others
         val posMap = classWordSums[Sentiment.POSITIVE] ?: mapOf()
         val negMap = classWordSums[Sentiment.NEGATIVE] ?: mapOf()
+        // ADDED: Get Neutral map to avoid flagging neutral words as positive/negative
+        val neuMap = classWordSums[Sentiment.NEUTRAL] ?: mapOf()
 
         for (token in tokens) {
             val posWeight = posMap[token] ?: 0.0
             val negWeight = negMap[token] ?: 0.0
+            val neuWeight = neuMap[token] ?: 0.0
 
-            if (posWeight > negWeight * 1.5) { // If significantly more positive
+            // CHANGED: Logic is now more robust.
+            // A word is Positive if it's stronger than Negative AND stronger than Neutral
+            if (posWeight > negWeight * 1.3 && posWeight > neuWeight * 1.3) {
                 positives.add(token)
-            } else if (negWeight > posWeight * 1.5) { // If significantly more negative
+            }
+            // A word is Negative if it's stronger than Positive AND stronger than Neutral
+            else if (negWeight > posWeight * 1.3 && negWeight > neuWeight * 1.3) {
                 negatives.add(token)
             }
         }
-        return Pair(positives, negatives)
+        // Return distinct words to avoid repetition (e.g., "Hope, Hope, Hope" becomes just "Hope")
+        return Pair(positives.distinct(), negatives.distinct())
     }
 }
 

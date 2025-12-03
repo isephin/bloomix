@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
+    id("kotlin-kapt") // <--- This line enables the 'kapt' command at the bottom
 }
 
 android {
@@ -15,6 +16,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -27,22 +29,18 @@ android {
             )
         }
     }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-
     kotlinOptions {
         jvmTarget = "11"
     }
-
     buildFeatures {
-        compose = true    // IMPORTANT!
+        compose = true
     }
-
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.4" // Works with latest Compose
+        kotlinCompilerExtensionVersion = "1.5.4"
     }
 }
 
@@ -51,8 +49,6 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation("androidx.appcompat:appcompat:1.6.1")
-
-    // --- MISSING DEPENDENCY ADDED HERE ---
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 
     // Jetpack Compose BOM (manages all versions)
@@ -83,4 +79,10 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    // --- ROOM DATABASE ---
+    val room_version = "2.6.1"
+    implementation("androidx.room:room-runtime:$room_version")
+    implementation("androidx.room:room-ktx:$room_version")
+    kapt("androidx.room:room-compiler:$room_version")
 }

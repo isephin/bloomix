@@ -19,12 +19,11 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.core.content.res.ResourcesCompat
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import androidx.lifecycle.lifecycleScope // <--- Import
+import kotlinx.coroutines.Dispatchers    // <--- Import
+import kotlinx.coroutines.launch       // <--- Import
+import kotlinx.coroutines.withContext  // <--- Import
 import java.util.Calendar
-import java.util.Locale
 import kotlin.math.abs
 
 class StatsActivity : AppCompatActivity() {
@@ -49,18 +48,13 @@ class StatsActivity : AppCompatActivity() {
         currentYear = intent.getIntExtra("year", cal.get(Calendar.YEAR))
 
         findViewById<ImageButton>(R.id.btnBack).setOnClickListener { finish() }
-
-        // Navigation Buttons
         findViewById<ImageButton>(R.id.btnPrevMonth).setOnClickListener { changeMonth(-1) }
         findViewById<ImageButton>(R.id.btnNextMonth).setOnClickListener { changeMonth(1) }
 
-        // Swipe Detector
         val swipeListener = object : OnSwipeTouchListener(this@StatsActivity) {
             override fun onSwipeRight() { changeMonth(-1) }
             override fun onSwipeLeft() { changeMonth(1) }
         }
-
-        // Attach swipe to root view and scroll view
         findViewById<View>(R.id.statsRoot).setOnTouchListener(swipeListener)
         findViewById<ScrollView>(R.id.statsScrollView).setOnTouchListener(swipeListener)
 
@@ -80,85 +74,73 @@ class StatsActivity : AppCompatActivity() {
     }
 
     private fun loadStats() {
-        // Update Title immediately
         findViewById<TextView>(R.id.tvStatsDate).text = "$currentYear.${String.format("%02d", currentMonth + 1)}"
 
-        // --- OPTIMIZATION: Process stats in Background Thread ---
-        CoroutineScope(Dispatchers.IO).launch {
-            val prefs = getSharedPreferences("journal_data", MODE_PRIVATE)
-            val allKeys = prefs.all.keys
-            val prefix = "flower_$currentYear-${currentMonth + 1}-"
+        // --- DATABASE FETCH ---
+        lifecycleScope.launch {
+            // 1. Fetch Data from Room
+            val entries = AppDatabase.getDatabase(applicationContext)
+                .journalDao()
+                .getEntriesForMonth(currentYear, currentMonth)
 
-            val flowerCounts = mutableMapOf<String, Int>()
-            val emotionCounts = mutableMapOf<String, Int>()
-            val dailyEmotionsMap = mutableMapOf<Int, List<String>>()
-            val dailySentimentScores = mutableMapOf<Int, Int>()
+            // 2. Process Data (Move to background thread for safety)
+            withContext(Dispatchers.Default) {
+                val flowerCounts = mutableMapOf<String, Int>()
+                val emotionCounts = mutableMapOf<String, Int>()
+                val dailyEmotionsMap = mutableMapOf<Int, List<String>>()
+                val dailySentimentScores = mutableMapOf<Int, Int>()
+                val combinedJournalText = StringBuilder()
 
-            // 1. NEW: Create a builder to collect ALL text for the month
-            val combinedJournalText = StringBuilder()
+                entries.forEach { entry ->
+                    // Flower Count
+                    flowerCounts[entry.flowerKey] = flowerCounts.getOrDefault(entry.flowerKey, 0) + 1
 
-            // Heavy filtering loop
-            allKeys.filter { it.startsWith(prefix) }.forEach { key ->
-                val dateKey = key.removePrefix("flower_")
-                val day = dateKey.split("-").last().toIntOrNull() ?: 0
+                    // Emotions
+                    val dayEmotions = if (entry.emotions.isNotEmpty()) entry.emotions.split(",") else emptyList()
+                    dailyEmotionsMap[entry.day] = dayEmotions
 
-                // Get Flower
-                val flowerKey = prefs.getString(key, "white_daisy") ?: "white_daisy"
-                flowerCounts[flowerKey] = flowerCounts.getOrDefault(flowerKey, 0) + 1
+                    // Text for AI Keywords
+                    combinedJournalText.append(entry.journalText).append(" ")
 
-                // Get Emotions
-                val emotionsStr = prefs.getString("emotions_$dateKey", "")
-                val dayEmotions = if (!emotionsStr.isNullOrEmpty()) emotionsStr.split(",") else emptyList()
-                dailyEmotionsMap[day] = dayEmotions
-
-                // Get Journal Text (NEW)
-                val entryText = prefs.getString("journal_$dateKey", "") ?: ""
-                combinedJournalText.append(entryText).append(" ") // Add to the big pile of text
-
-                // Calculate Daily Sentiment Score
-                var posCount = 0.0
-                dayEmotions.forEach { emo ->
-                    val clean = emo.trim().lowercase()
-                    emotionCounts[clean] = emotionCounts.getOrDefault(clean, 0) + 1
-                    if (clean in listOf("happy", "excited", "loved", "calm", "grateful")) posCount++
-                }
-                val score = if (dayEmotions.isNotEmpty()) (posCount / dayEmotions.size * 100).toInt() else 0
-                dailySentimentScores[day] = score
-            }
-
-            // 2. NEW: Actually Run the AI on the combined text
-            val (posWords, negWords) = MLProcessor.extractKeyWords(combinedJournalText.toString())
-
-            // --- Switch back to Main Thread to update UI ---
-            withContext(Dispatchers.Main) {
-                setupGardenList(flowerCounts)
-                setupEmotionsList(emotionCounts)
-                setupDailyChart(dailyEmotionsMap)
-                setupPositiveIndex(dailySentimentScores)
-
-                // 3. NEW: Display the REAL results (Top 3 words only to fit the card)
-                val posDisplay = if (posWords.isNotEmpty()) {
-                    posWords.take(3).joinToString(", ") { it.replaceFirstChar { c -> c.uppercase() } }
-                } else {
-                    "None detected"
+                    // Sentiment Score Calculation
+                    var posCount = 0.0
+                    dayEmotions.forEach { emo ->
+                        val clean = emo.trim().lowercase()
+                        emotionCounts[clean] = emotionCounts.getOrDefault(clean, 0) + 1
+                        if (clean in listOf("happy", "excited", "loved", "calm", "grateful")) posCount++
+                    }
+                    val score = if (dayEmotions.isNotEmpty()) (posCount / dayEmotions.size * 100).toInt() else 0
+                    dailySentimentScores[entry.day] = score
                 }
 
-                val negDisplay = if (negWords.isNotEmpty()) {
-                    negWords.take(3).joinToString(", ") { it.replaceFirstChar { c -> c.uppercase() } }
-                } else {
-                    "None detected"
+                // 3. Extract Keywords using MLProcessor
+                val (posWords, negWords) = MLProcessor.extractKeyWords(combinedJournalText.toString())
+
+                // 4. Update UI on Main Thread
+                withContext(Dispatchers.Main) {
+                    setupGardenList(flowerCounts)
+                    setupEmotionsList(emotionCounts)
+                    setupDailyChart(dailyEmotionsMap)
+                    setupPositiveIndex(dailySentimentScores)
+
+                    val posDisplay = if (posWords.isNotEmpty()) posWords.take(3).joinToString(", ") { it.replaceFirstChar { c -> c.uppercase() } } else "None detected"
+                    val negDisplay = if (negWords.isNotEmpty()) negWords.take(3).joinToString(", ") { it.replaceFirstChar { c -> c.uppercase() } } else "None detected"
+
+                    findViewById<TextView>(R.id.tvPosWords).text = posDisplay
+                    findViewById<TextView>(R.id.tvNegWords).text = negDisplay
+                    findViewById<TextView>(R.id.tvPosWords).setTextColor(Color.parseColor("#4CAF50"))
+                    findViewById<TextView>(R.id.tvNegWords).setTextColor(Color.parseColor("#F44336"))
                 }
-
-                // Update the text views
-                findViewById<TextView>(R.id.tvPosWords).text = posDisplay
-                findViewById<TextView>(R.id.tvNegWords).text = negDisplay
-
-                // Set colors dynamically based on results
-                findViewById<TextView>(R.id.tvPosWords).setTextColor(Color.parseColor("#4CAF50")) // Green
-                findViewById<TextView>(R.id.tvNegWords).setTextColor(Color.parseColor("#F44336")) // Red
             }
         }
     }
+
+    // ... (Keep your setupGardenList, createFlowerCard, etc. exactly the same as before) ...
+    // ... (Copy/Paste the UI helper methods from your previous StatsActivity file here) ...
+    // ... (For brevity, I assume you have the UI methods: setupGardenList, setupEmotionsList, setupDailyChart, setupPositiveIndex, createStackedBar, createBar, applyGamjaFont, getEmotionColor, OnSwipeTouchListener) ...
+
+    // NOTE: Ensure you keep the 'setupGardenList' and other UI methods from your original file.
+    // They don't need changes, only 'loadStats' needed the DB logic.
 
     // --- 1. GARDEN SETUP ---
     private fun setupGardenList(flowers: Map<String, Int>) {
@@ -194,9 +176,7 @@ class StatsActivity : AppCompatActivity() {
         val container = dialog.findViewById<LinearLayout>(R.id.gardenGrid)
         container.removeAllViews()
 
-        dialog.findViewById<View>(R.id.btnCloseGarden)?.setOnClickListener {
-            dialog.dismiss()
-        }
+        dialog.findViewById<View>(R.id.btnCloseGarden)?.setOnClickListener { dialog.dismiss() }
 
         flowers.entries.sortedByDescending { it.value }.forEach { (key, count) ->
             val row = LinearLayout(this)
@@ -276,11 +256,9 @@ class StatsActivity : AppCompatActivity() {
         card.addView(innerLayout)
 
         card.setOnClickListener { showGardenDialog(allFlowers) }
-
         return card
     }
 
-    // --- 2. EMOTIONS LIST ---
     private fun setupEmotionsList(counts: Map<String, Int>) {
         val container = findViewById<LinearLayout>(R.id.emotionsListContainer)
         val btnMore = findViewById<TextView>(R.id.btnShowMore)
@@ -328,10 +306,7 @@ class StatsActivity : AppCompatActivity() {
         headerRow.gravity = Gravity.CENTER_VERTICAL
 
         val icon = ImageView(this)
-
-        // --- OPTIMIZATION: Use Cached Lookup ---
         val resId = FlowerData.getEmotionDrawable(this, emotion)
-
         if (resId != 0) icon.setImageResource(resId)
         icon.layoutParams = LinearLayout.LayoutParams(60, 60).apply { marginEnd = 16 }
 
@@ -357,7 +332,6 @@ class StatsActivity : AppCompatActivity() {
         return layout
     }
 
-    // --- 3. DAILY CHART ---
     private fun setupDailyChart(dailyData: Map<Int, List<String>>) {
         val container = findViewById<LinearLayout>(R.id.dailyChartContainer)
         val avgTxt = findViewById<TextView>(R.id.tvAvgEmotions)
@@ -417,7 +391,6 @@ class StatsActivity : AppCompatActivity() {
         return barContainer
     }
 
-    // --- 4. POSITIVE INDEX ---
     private fun setupPositiveIndex(dailyScores: Map<Int, Int>) {
         val container = findViewById<LinearLayout>(R.id.positiveIndexContainer)
         val avgTxt = findViewById<TextView>(R.id.tvAvgPositive)
@@ -485,34 +458,22 @@ class StatsActivity : AppCompatActivity() {
         return Color.parseColor(hex)
     }
 
-    // --- Helper Class for Swipe Detection ---
     open class OnSwipeTouchListener(ctx: Context) : View.OnTouchListener {
         private val gestureDetector = GestureDetector(ctx, GestureListener())
-
         override fun onTouch(v: View, event: MotionEvent): Boolean {
             if (gestureDetector.onTouchEvent(event)) return true
             return false
         }
-
         private inner class GestureListener : GestureDetector.SimpleOnGestureListener() {
             private val SWIPE_THRESHOLD = 100
             private val SWIPE_VELOCITY_THRESHOLD = 100
-
-            override fun onDown(e: MotionEvent): Boolean {
-                return false // Don't consume simple taps so scrollview still works
-            }
-
-            override fun onFling(
-                e1: MotionEvent?,
-                e2: MotionEvent,
-                velocityX: Float,
-                velocityY: Float
-            ): Boolean {
+            override fun onDown(e: MotionEvent): Boolean { return false }
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, vX: Float, vY: Float): Boolean {
                 if (e1 == null) return false
                 val diffY = e2.y - e1.y
                 val diffX = e2.x - e1.x
                 if (abs(diffX) > abs(diffY)) {
-                    if (abs(diffX) > SWIPE_THRESHOLD && abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                    if (abs(diffX) > SWIPE_THRESHOLD && abs(vX) > SWIPE_VELOCITY_THRESHOLD) {
                         if (diffX > 0) onSwipeRight() else onSwipeLeft()
                         return true
                     }
@@ -520,7 +481,6 @@ class StatsActivity : AppCompatActivity() {
                 return false
             }
         }
-
         open fun onSwipeRight() {}
         open fun onSwipeLeft() {}
     }

@@ -11,15 +11,16 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope // <--- New Import
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.launch // <--- New Import
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -47,7 +48,9 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
         tvMonthTitle = findViewById(R.id.tvMonthTitle)
 
         recyclerView.layoutManager = GridLayoutManager(this, 7)
-        adapter = DayAdapter(daysList, loadFlowersMap(), this)
+
+        // Initialize with empty map, it will update in a second
+        adapter = DayAdapter(daysList, emptyMap(), this)
         recyclerView.adapter = adapter
 
         updateCalendar()
@@ -78,30 +81,21 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
             startActivity(intent)
         }
 
-        // --- ADD SWIPE LISTENER ---
+        // --- SWIPE LISTENER ---
         val swipeListener = object : OnSwipeTouchListener(this@CalendarActivity) {
-            override fun onSwipeRight() {
-                changeMonth(-1) // Previous Month
-            }
-            override fun onSwipeLeft() {
-                changeMonth(1) // Next Month
-            }
+            override fun onSwipeRight() { changeMonth(-1) }
+            override fun onSwipeLeft() { changeMonth(1) }
         }
-
-        // Attach to RecyclerView (Calendar Grid)
         recyclerView.setOnTouchListener(swipeListener)
-
-        // Attach to the root background (for empty areas)
         findViewById<View>(android.R.id.content).setOnTouchListener(swipeListener)
     }
 
-    // --- FIX: Refresh Calendar whenever screen is shown ---
     override fun onResume() {
         super.onResume()
         updateCalendar()
     }
 
-    // ... (Settings Dialog methods remain the same) ...
+    // ... (Settings Dialog methods remain exactly the same as before) ...
     private fun showSettingsDialog() {
         val dialog = Dialog(this)
         dialog.setContentView(R.layout.dialog_settings)
@@ -173,11 +167,25 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
         updateCalendar()
     }
 
+    // --- UPDATED: NOW USES DATABASE ---
     private fun updateCalendar() {
         tvMonthTitle.text = getMonthName(currentMonth) + " " + currentYear
         generateMonthDays(currentYear, currentMonth)
-        adapter.updateFlowers(loadFlowersMap())
-        adapter.notifyDataSetChanged()
+
+        // Launch a coroutine to fetch data from Room
+        lifecycleScope.launch {
+            val entries = AppDatabase.getDatabase(applicationContext)
+                .journalDao()
+                .getEntriesForMonth(currentYear, currentMonth) // Note: Room stores month 0-11
+
+            val map = LinkedHashMap<String, String>()
+            entries.forEach { entry ->
+                map[entry.dateKey] = entry.flowerKey
+            }
+
+            adapter.updateFlowers(map)
+            adapter.notifyDataSetChanged()
+        }
     }
 
     private fun generateMonthDays(year: Int, month: Int) {
@@ -198,48 +206,40 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
         while (daysList.size % 7 != 0) daysList.add(DayModel(null, null))
     }
 
-    private fun loadFlowersMap(): Map<String, String> {
-        val prefs = getSharedPreferences("journal_data", MODE_PRIVATE)
-        val map = LinkedHashMap<String, String>()
-        for (d in 1..31) {
-            val key = "$currentYear-${currentMonth + 1}-$d"
-            prefs.getString("flower_$key", null)?.let { map[key] = it }
-        }
-        return map
-    }
-
+    // --- UPDATED: NOW USES DATABASE ---
     override fun onDayClicked(dateKey: String) {
         if (isFutureDate(dateKey)) {
             Toast.makeText(this, "You cannot journal for future dates!", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val prefs = getSharedPreferences("journal_data", MODE_PRIVATE)
-        val existingFlower = prefs.getString("flower_$dateKey", null)
+        // Check DB for existing entry
+        lifecycleScope.launch {
+            val existingEntry = AppDatabase.getDatabase(applicationContext)
+                .journalDao()
+                .getEntryByDate(dateKey)
 
-        if (existingFlower != null) {
-            val journalText = prefs.getString("journal_$dateKey", "")
-            val sentiment = prefs.getString("sentiment_$dateKey", "NEUTRAL")
-            val category = prefs.getString("category_$dateKey", "Complex Emotional Landscape")
-            val reflection = prefs.getString("reflection_$dateKey", "Reflect on your day.")
-            val microAction = prefs.getString("micro_action_desc_$dateKey", "Take a moment to breathe.")
-            val emotionsStr = prefs.getString("emotions_$dateKey", "")
-            val emotionsList = if (!emotionsStr.isNullOrEmpty()) ArrayList(emotionsStr.split(",")) else arrayListOf<String>()
+            if (existingEntry != null) {
+                // Entry Exists -> Go to Result
+                val intent = Intent(this@CalendarActivity, FlowerResultActivity::class.java)
+                intent.putExtra("selectedDate", dateKey)
+                intent.putExtra("flower_key", existingEntry.flowerKey)
+                intent.putExtra("journal_text", existingEntry.journalText)
+                intent.putExtra("sentiment", existingEntry.sentiment)
+                intent.putExtra("category", existingEntry.moodCategory)
+                intent.putExtra("reflection", existingEntry.reflection)
+                intent.putExtra("micro_action_desc", existingEntry.microAction)
 
-            val intent = Intent(this, FlowerResultActivity::class.java)
-            intent.putExtra("selectedDate", dateKey)
-            intent.putExtra("flower_key", existingFlower)
-            intent.putExtra("journal_text", journalText)
-            intent.putExtra("sentiment", sentiment)
-            intent.putExtra("category", category)
-            intent.putExtra("reflection", reflection)
-            intent.putExtra("micro_action_desc", microAction)
-            intent.putStringArrayListExtra("selected", emotionsList)
-            startActivity(intent)
-        } else {
-            val intent = Intent(this, EmotionActivity::class.java)
-            intent.putExtra("selectedDate", dateKey)
-            startActivityForResult(intent, REQUEST_EMOTION)
+                val emotionsList = ArrayList(existingEntry.emotions.split(","))
+                intent.putStringArrayListExtra("selected", emotionsList)
+
+                startActivity(intent)
+            } else {
+                // No Entry -> Go to Emotion Selection
+                val intent = Intent(this@CalendarActivity, EmotionActivity::class.java)
+                intent.putExtra("selectedDate", dateKey)
+                startActivityForResult(intent, REQUEST_EMOTION)
+            }
         }
     }
 
@@ -271,7 +271,7 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
         return listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")[monthIndex]
     }
 
-    // --- HELPER CLASS FOR SWIPE DETECTION ---
+    // --- HELPER CLASS FOR SWIPE DETECTION (Same as before) ---
     open class OnSwipeTouchListener(ctx: Context) : View.OnTouchListener {
         private val gestureDetector = GestureDetector(ctx, GestureListener())
 
@@ -283,38 +283,23 @@ class CalendarActivity : AppCompatActivity(), DayAdapter.OnDayClickListener {
             private val SWIPE_THRESHOLD = 100
             private val SWIPE_VELOCITY_THRESHOLD = 100
 
-            override fun onDown(e: MotionEvent): Boolean {
-                return false // Return false so clicks can still pass through if not a swipe
-            }
+            override fun onDown(e: MotionEvent): Boolean { return false }
 
-            override fun onFling(
-                e1: MotionEvent?,
-                e2: MotionEvent,
-                velocityX: Float,
-                velocityY: Float
-            ): Boolean {
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, vX: Float, vY: Float): Boolean {
                 if (e1 == null) return false
-                val result = false
                 try {
                     val diffY = e2.y - e1.y
                     val diffX = e2.x - e1.x
                     if (abs(diffX) > abs(diffY)) {
-                        if (abs(diffX) > SWIPE_THRESHOLD && abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
-                            if (diffX > 0) {
-                                onSwipeRight()
-                            } else {
-                                onSwipeLeft()
-                            }
+                        if (abs(diffX) > SWIPE_THRESHOLD && abs(vX) > SWIPE_VELOCITY_THRESHOLD) {
+                            if (diffX > 0) onSwipeRight() else onSwipeLeft()
                             return true
                         }
                     }
-                } catch (exception: Exception) {
-                    exception.printStackTrace()
-                }
-                return result
+                } catch (e: Exception) { e.printStackTrace() }
+                return false
             }
         }
-
         open fun onSwipeRight() {}
         open fun onSwipeLeft() {}
     }

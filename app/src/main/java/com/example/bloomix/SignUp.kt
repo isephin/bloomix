@@ -17,6 +17,9 @@ class SignUp : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_sign_up)
 
+        // only for model evaluation use ModelEval_Result on logcat
+        ModelEvaluator.runEvaluation()
+
         auth = FirebaseAuth.getInstance()
 
         val nickname = findViewById<EditText>(R.id.nicknameInput)

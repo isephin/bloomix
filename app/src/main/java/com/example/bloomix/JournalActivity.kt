@@ -5,6 +5,8 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope // <--- ADDED THIS
+import kotlinx.coroutines.launch          // <--- ADDED THIS
 
 class JournalActivity : AppCompatActivity() {
 
@@ -53,18 +55,43 @@ class JournalActivity : AppCompatActivity() {
         val microActionDesc = analysisResult.suggestedMicroActions.firstOrNull()?.description
             ?: "Take a mindful pause today."
 
-        // 2. SAVE ALL DATA
+        // 2. SAVE ALL DATA (Now using Room Database)
         selectedDateKey?.let { dateKey ->
-            val prefs = getSharedPreferences("journal_data", MODE_PRIVATE)
-            prefs.edit().apply {
-                putString("flower_$dateKey", chosenFlowerKey)
-                putString("journal_$dateKey", journalText)
-                putString("sentiment_$dateKey", analysisResult.sentiment.name)
-                putString("category_$dateKey", analysisResult.overallMoodCategory)
-                putString("reflection_$dateKey", analysisResult.reflectionPrompt)
-                putString("micro_action_desc_$dateKey", microActionDesc)
-                putString("emotions_$dateKey", selectedEmotions.joinToString(","))
-            }.apply()
+            // Use lifecycleScope to launch a background coroutine
+            lifecycleScope.launch {
+                try {
+                    // Parse the dateKey "2025-11-5" to get Year/Month/Day integers
+                    val parts = dateKey.split("-")
+                    // Safety check: ensure we have at least 3 parts
+                    if (parts.size >= 3) {
+                        val y = parts[0].toInt()
+                        val m = parts[1].toInt()
+                        val d = parts[2].toInt()
+                        val timestamp = System.currentTimeMillis()
+
+                        val entry = JournalEntry(
+                            dateKey = dateKey,
+                            timestamp = timestamp,
+                            year = y,
+                            month = m - 1, // Store as 0-indexed to match Calendar logic
+                            day = d,
+                            flowerKey = chosenFlowerKey,
+                            journalText = journalText,
+                            emotions = selectedEmotions.joinToString(","),
+                            sentiment = analysisResult.sentiment.name,
+                            moodCategory = analysisResult.overallMoodCategory,
+                            reflection = analysisResult.reflectionPrompt,
+                            microAction = microActionDesc
+                        )
+
+                        // Save to Database
+                        AppDatabase.getDatabase(applicationContext).journalDao().insertEntry(entry)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    // Optional: Toast.makeText(this@JournalActivity, "Error saving", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
 
         // 3. Start Result Screen
@@ -80,7 +107,7 @@ class JournalActivity : AppCompatActivity() {
         intent.putExtra("reflection", analysisResult.reflectionPrompt)
         intent.putExtra("micro_action_desc", microActionDesc)
 
-        // --- CRITICAL FIX: Tell the next screen this is a NEW entry ---
+        // Tell the next screen this is a NEW entry
         intent.putExtra("is_new_entry", true)
 
         startActivity(intent)

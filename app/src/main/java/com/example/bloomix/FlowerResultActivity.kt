@@ -15,13 +15,14 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.res.ResourcesCompat
+import androidx.lifecycle.lifecycleScope // <--- Import
+import kotlinx.coroutines.launch       // <--- Import
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 class FlowerResultActivity : AppCompatActivity() {
 
-    // Define a map for emotion colors
     private val emotionColors = mapOf(
         "loved" to "#FF88AA", "annoyed" to "#FF6666", "angry" to "#FF3300",
         "stressed" to "#FFAA66", "happy" to "#FFDD66", "confused" to "#FFFF66",
@@ -34,7 +35,6 @@ class FlowerResultActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_flower_result)
 
-        // Get Data
         val journalText = intent.getStringExtra("journal_text") ?: ""
         val flowerKey = intent.getStringExtra("flower_key") ?: "white_daisy"
         val selectedEmotions = intent.getStringArrayListExtra("selected") ?: arrayListOf()
@@ -47,7 +47,6 @@ class FlowerResultActivity : AppCompatActivity() {
 
         val flowerInfo = FlowerData.flowers[flowerKey] ?: FlowerData.flowers["white_daisy"]!!
 
-        // --- BIND UI ---
         val displayDate = if (dateKey != null) {
             try {
                 val parser = SimpleDateFormat("yyyy-M-d", Locale.getDefault())
@@ -70,9 +69,6 @@ class FlowerResultActivity : AppCompatActivity() {
             findViewById<TextView>(R.id.labelJournal).text = "$nickname's Journal"
         }
 
-        // --- NAVIGATION FIX ---
-        // Just finish(). Do NOT start a new Intent.
-        // This returns to the existing CalendarActivity instance (which is still on November).
         findViewById<ImageButton>(R.id.btnClose).setOnClickListener {
             finish()
         }
@@ -81,7 +77,6 @@ class FlowerResultActivity : AppCompatActivity() {
             showCustomDeleteDialog(dateKey)
         }
 
-        // Populate Cards
         findViewById<ImageView>(R.id.flowerImage).setImageResource(flowerInfo.drawable)
         findViewById<TextView>(R.id.flowerName).text = flowerInfo.name
         findViewById<TextView>(R.id.flowerKeywords).text = flowerInfo.keywords
@@ -112,20 +107,15 @@ class FlowerResultActivity : AppCompatActivity() {
     }
 
     private fun deleteEntry(dateKey: String) {
-        val prefs = getSharedPreferences("journal_data", MODE_PRIVATE)
-        prefs.edit().apply {
-            remove("flower_$dateKey")
-            remove("journal_$dateKey")
-            remove("sentiment_$dateKey")
-            remove("category_$dateKey")
-            remove("reflection_$dateKey")
-            remove("micro_action_desc_$dateKey")
-            remove("emotions_$dateKey")
-        }.apply()
+        // --- DATABASE DELETE ---
+        lifecycleScope.launch {
+            AppDatabase.getDatabase(applicationContext)
+                .journalDao()
+                .deleteEntry(dateKey)
 
-        Toast.makeText(this, "Entry deleted", Toast.LENGTH_SHORT).show()
-        // Just finish to go back to Calendar and let onResume refresh the view
-        finish()
+            Toast.makeText(this@FlowerResultActivity, "Entry deleted", Toast.LENGTH_SHORT).show()
+            finish()
+        }
     }
 
     private fun generateEmotionStats(emotions: ArrayList<String>) {
@@ -135,7 +125,6 @@ class FlowerResultActivity : AppCompatActivity() {
         val counts = emotions.groupingBy { it.lowercase(Locale.getDefault()) }.eachCount()
         val total = emotions.size.toFloat()
 
-        // Sort by count descending
         counts.entries.sortedByDescending { it.value }.forEach { (emotion, count) ->
             val percentage = ((count / total) * 100).toInt()
             val colorInt = getEmotionColor(emotion)
