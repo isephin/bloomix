@@ -1,7 +1,6 @@
 package com.example.bloomix
 
 import android.app.Dialog
-import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
@@ -15,14 +14,15 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.res.ResourcesCompat
-import androidx.lifecycle.lifecycleScope // <--- Import
-import kotlinx.coroutines.launch       // <--- Import
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 class FlowerResultActivity : AppCompatActivity() {
 
+    // Map of emotions to specific hex colors for the progress bars
     private val emotionColors = mapOf(
         "loved" to "#FF88AA", "annoyed" to "#FF6666", "angry" to "#FF3300",
         "stressed" to "#FFAA66", "happy" to "#FFDD66", "confused" to "#FFFF66",
@@ -35,25 +35,34 @@ class FlowerResultActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_flower_result)
 
+        // 1. Retrieve data passed from JournalActivity or HistoryActivity
         val journalText = intent.getStringExtra("journal_text") ?: ""
         val flowerKey = intent.getStringExtra("flower_key") ?: "white_daisy"
         val selectedEmotions = intent.getStringArrayListExtra("selected") ?: arrayListOf()
-        val dateKey = intent.getStringExtra("selectedDate")
+        val dateKey = intent.getStringExtra("selectedDate") // "2025-11-20"
 
+        // AI Analysis Results
         val sentiment = intent.getStringExtra("sentiment") ?: "NEUTRAL"
         val category = intent.getStringExtra("category") ?: "Complex"
         val reflectionPrompt = intent.getStringExtra("reflection") ?: ""
         val microActionDesc = intent.getStringExtra("micro_action_desc") ?: ""
 
+        // 2. Load Static Flower Info (Name, Meaning, Image) from our centralized data
         val flowerInfo = FlowerData.flowers[flowerKey] ?: FlowerData.flowers["white_daisy"]!!
 
+        // 3. Format the Date for display (e.g., "2025.11.20")
         val displayDate = if (dateKey != null) {
             try {
+                // Try parsing standard "yyyy-M-d" format
                 val parser = SimpleDateFormat("yyyy-M-d", Locale.getDefault())
-                var date = try { parser.parse(dateKey) } catch (e: Exception) { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateKey) }
+                var date = try { parser.parse(dateKey) } catch (e: Exception) {
+                    // Fallback if format is slightly different
+                    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateKey)
+                }
                 val formatter = SimpleDateFormat("yyyy.MM.dd", Locale.getDefault())
                 formatter.format(date ?: Date())
             } catch (e: Exception) {
+                // If parsing fails, just show today's date
                 SimpleDateFormat("yyyy.MM.dd", Locale.getDefault()).format(Date())
             }
         } else {
@@ -61,6 +70,7 @@ class FlowerResultActivity : AppCompatActivity() {
         }
         findViewById<TextView>(R.id.tvDate).text = displayDate
 
+        // 4. Personalization: Check for User Nickname to customize headers
         val prefsSettings = getSharedPreferences("app_settings", MODE_PRIVATE)
         val nickname = prefsSettings.getString("user_nickname", "")
         if (!nickname.isNullOrEmpty() && nickname != "Bloomix User") {
@@ -69,14 +79,17 @@ class FlowerResultActivity : AppCompatActivity() {
             findViewById<TextView>(R.id.labelJournal).text = "$nickname's Journal"
         }
 
+        // 5. Button Listeners
         findViewById<ImageButton>(R.id.btnClose).setOnClickListener {
-            finish()
+            finish() // Close screen
         }
 
+        // The "Menu" button (three dots) allows deleting the entry
         findViewById<ImageButton>(R.id.btnMenu).setOnClickListener {
             showCustomDeleteDialog(dateKey)
         }
 
+        // 6. Populate UI Elements with Data
         findViewById<ImageView>(R.id.flowerImage).setImageResource(flowerInfo.drawable)
         findViewById<TextView>(R.id.flowerName).text = flowerInfo.name
         findViewById<TextView>(R.id.flowerKeywords).text = flowerInfo.keywords
@@ -87,9 +100,13 @@ class FlowerResultActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.microAction).text = microActionDesc
         findViewById<TextView>(R.id.journalEntry).text = journalText
 
+        // 7. Dynamically generate the emotion progress bars
         generateEmotionStats(selectedEmotions)
     }
 
+    /**
+     * Shows a confirmation dialog to delete the current journal entry.
+     */
     private fun showCustomDeleteDialog(dateKey: String?) {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
@@ -106,29 +123,39 @@ class FlowerResultActivity : AppCompatActivity() {
         dialog.show()
     }
 
+    /**
+     * Deletes the entry from the Room Database and closes the screen.
+     */
     private fun deleteEntry(dateKey: String) {
-        // --- DATABASE DELETE ---
+        // Use Coroutine to perform database deletion in background
         lifecycleScope.launch {
             AppDatabase.getDatabase(applicationContext)
                 .journalDao()
                 .deleteEntry(dateKey)
 
             Toast.makeText(this@FlowerResultActivity, "Entry deleted", Toast.LENGTH_SHORT).show()
-            finish()
+            finish() // Return to previous screen (Calendar or History)
         }
     }
 
+    /**
+     * Calculates percentages for each emotion and adds progress bars to the UI.
+     * Example: ["happy", "happy", "sad"] -> Happy 66%, Sad 33%
+     */
     private fun generateEmotionStats(emotions: ArrayList<String>) {
         val container = findViewById<LinearLayout>(R.id.emotionsContainer)
         if (emotions.isEmpty()) return
 
+        // Calculate counts: {happy=2, sad=1}
         val counts = emotions.groupingBy { it.lowercase(Locale.getDefault()) }.eachCount()
         val total = emotions.size.toFloat()
 
+        // Sort by frequency (highest first) and iterate
         counts.entries.sortedByDescending { it.value }.forEach { (emotion, count) ->
             val percentage = ((count / total) * 100).toInt()
             val colorInt = getEmotionColor(emotion)
 
+            // Create Layout for Row (Icon + Text)
             val rowLayout = LinearLayout(this)
             rowLayout.orientation = LinearLayout.HORIZONTAL
             rowLayout.gravity = Gravity.CENTER_VERTICAL
@@ -136,11 +163,13 @@ class FlowerResultActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { bottomMargin = 8 }
 
+            // Create Icon View
             val emotionIcon = ImageView(this)
             val iconParams = LinearLayout.LayoutParams(60, 60)
             iconParams.marginEnd = 16
             emotionIcon.layoutParams = iconParams
 
+            // Try to find the icon drawable resource
             var resId = resources.getIdentifier("em_$emotion", "drawable", packageName)
             if (resId == 0) resId = resources.getIdentifier("${emotion}_chip", "drawable", packageName)
             if (resId == 0) resId = resources.getIdentifier(emotion, "drawable", packageName)
@@ -150,15 +179,19 @@ class FlowerResultActivity : AppCompatActivity() {
                 rowLayout.addView(emotionIcon)
             }
 
+            // Create Text View (Name + Percentage)
             val label = TextView(this)
             label.text = "${emotion.replaceFirstChar { it.uppercase(Locale.getDefault()) }} $percentage%"
             label.textSize = 20f
             label.setTextColor(Color.parseColor("#555555"))
+
+            // Apply custom font safely
             try { label.typeface = ResourcesCompat.getFont(this, R.font.gamja_flower) } catch (e: Exception) {}
 
             rowLayout.addView(label)
             container.addView(rowLayout)
 
+            // Create Progress Bar
             val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal)
             progressBar.max = 100
             progressBar.progress = percentage
@@ -171,6 +204,7 @@ class FlowerResultActivity : AppCompatActivity() {
         }
     }
 
+    /** Helper to get the hex color for a specific emotion string. */
     private fun getEmotionColor(emotion: String): Int {
         val hexColor = emotionColors[emotion.lowercase(Locale.getDefault())] ?: "#F4C2C2"
         return Color.parseColor(hexColor)

@@ -2,33 +2,52 @@ package com.example.bloomix
 
 import android.content.Context
 
+/**
+ * Data class representing the visual and textual details of a single flower.
+ * This holds the image resource ID and the meanings we display on the Result screen.
+ */
 data class FlowerInfo(
-    val drawable: Int,
-    val name: String,
-    val keywords: String,
-    val flowerLanguage: String,
-    val microAction: String
+    val drawable: Int,        // The R.drawable ID for the flower image
+    val name: String,         // Display name (e.g., "Red Rose")
+    val keywords: String,     // Short summary (e.g., "Passion + Love")
+    val flowerLanguage: String, // The longer, detailed description
+    val microAction: String   // The small suggested task for the user
 )
 
+/**
+ * Singleton object that acts as the central database for all Flower-related logic.
+ * Using 'object' means we can access these functions anywhere without creating an instance.
+ */
 object FlowerData {
 
-    // --- OPTIMIZATION: Cache for Emotion IDs to prevent laggy "getIdentifier" calls ---
+    // --- 1. OPTIMIZATION: Cache for Emotion IDs ---
+    // This map stores resource IDs we've already looked up so we don't have to scan
+    // the system resources every time (which can be slow).
     private val emotionCache = mutableMapOf<String, Int>()
 
+    /**
+     * Dynamically finds the drawable ID for an emotion name string (e.g., "happy").
+     * It checks multiple naming conventions (e.g., "em_happy", "happy_chip", "happy").
+     */
     fun getEmotionDrawable(context: Context, emotionName: String): Int {
+        // Normalize the input string to lowercase to avoid case-sensitivity issues
         val key = emotionName.lowercase().trim()
 
-        // 1. Check if we already found this ID before
+        // If we found this ID before, return it immediately from our cache
         if (emotionCache.containsKey(key)) {
             return emotionCache[key]!!
         }
 
-        // 2. If not, look it up the slow way (only happens once per emotion)
+        // Try finding "em_happy" (the main icon style)
         var resId = context.resources.getIdentifier("em_$key", "drawable", context.packageName)
+
+        // If not found, try finding "happy_chip" (the chip style)
         if (resId == 0) resId = context.resources.getIdentifier("${key}_chip", "drawable", context.packageName)
+
+        // If still not found, try just "happy" (fallback)
         if (resId == 0) resId = context.resources.getIdentifier(key, "drawable", context.packageName)
 
-        // 3. Save it for next time
+        // If we found a valid ID, save it to the cache for next time
         if (resId != 0) {
             emotionCache[key] = resId
         }
@@ -36,7 +55,8 @@ object FlowerData {
         return resId
     }
 
-    // --- ORIGINAL FLOWER DATA ---
+    // --- 2. FLOWER DEFINITIONS ---
+    // A hardcoded map connecting a unique key (e.g., "rose") to its full FlowerInfo data.
     val flowers = mapOf(
         "rose" to FlowerInfo(
             R.drawable.rose,
@@ -250,10 +270,58 @@ object FlowerData {
         )
     )
 
+    // --- 3. NEW: CENTRALIZED MAPPING LOGIC ---
+    // This defines which flowers can appear for a specific emotion.
+    // e.g. If you feel "happy", you might get a marigold, morning_glory, or dahlia.
+    private val emotionToFlowerMap = mapOf(
+        "happy" to listOf("marigold", "morning_glory", "dahlia"),
+        "sad" to listOf("bluebell", "hydrangea", "lilac"),
+        "angry" to listOf("snapdragon", "black_rose"),
+        "tired" to listOf("anemone", "aloe_vera", "lavender"),
+        "bored" to listOf("white_daisy", "pansy", "cornflower"),
+        "confused" to listOf("wisteria", "iris"),
+        "loved" to listOf("rose", "gardenia", "camellia", "carnation"),
+        "calm" to listOf("lotus", "lily_of_the_valley", "white_rose"),
+        "excited" to listOf("zinnia", "freesia"),
+        "stressed" to listOf("black_rose", "edelweiss", "chamomile"),
+        "annoyed" to listOf("azalea", "red_tulip"),
+        "shocked" to listOf("iris", "cherry_blossom")
+    )
+
+    /**
+     * The Main Logic: Determines the final flower based on a list of emotions selected by the user.
+     */
+    fun determineFlower(selectedEmotions: List<String>): String {
+        // Safety check: if the list is empty, return a random flower to prevent crashing
+        if (selectedEmotions.isEmpty()) {
+            return flowers.keys.random()
+        }
+
+        // 1. Find the most frequent emotion in the user's selection
+        // "groupingBy { it }.eachCount()" turns ["happy", "happy", "sad"] into { "happy": 2, "sad": 1 }
+        val mostFrequent = selectedEmotions
+            .groupingBy { it }
+            .eachCount()
+            .maxByOrNull { it.value }?.key
+
+        // 2. Look up the list of possible flowers for that dominant emotion
+        val possibleFlowers = emotionToFlowerMap[mostFrequent]
+
+        // 3. Return a random flower from that list, or a random fallback if something went wrong
+        return if (possibleFlowers != null && possibleFlowers.isNotEmpty()) {
+            possibleFlowers.random()
+        } else {
+            flowers.keys.random()
+        }
+    }
+
+    /**
+     * Helper to get the image ID for a specific flower name (e.g. "rose").
+     */
     fun getDrawableForName(context: Context, flowerName: String): Int {
-        // Optimized: Lowercase once and safe get
         val key = flowerName.lowercase().trim()
         val info = flowers[key]
+        // Return 0 if the flower isn't found (which lets the UI handle empty states)
         return info?.drawable ?: 0
     }
 }

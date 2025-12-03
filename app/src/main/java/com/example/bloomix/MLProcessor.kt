@@ -1,17 +1,35 @@
 package com.example.bloomix
 
+/**
+ * Singleton object that acts as the "Bridge" between the App's UI and the ML Algorithms.
+ * It holds the trained instances of Naive Bayes (Sentiment) and SVM (Mood Category).
+ */
 object MLProcessor {
 
+    // 1. Initialize the Sentiment Classifier (Naive Bayes)
     private val naiveBayes = NaiveBayesClassifier()
+
+    // 2. Initialize the Mood Category Classifier (SVM)
+    // We define the specific categories we want the SVM to distinguish between.
     private val svm = MulticlassSVMClassifier(
-        listOf("High-Energy Positive Focus", "Balanced and Contemplative", "Processing Difficult Emotions", "Complex Emotional Landscape")
+        listOf(
+            "High-Energy Positive Focus",
+            "Balanced and Contemplative",
+            "Processing Difficult Emotions",
+            "Complex Emotional Landscape"
+        )
     )
 
+    // The 'init' block runs once when the app starts.
+    // This is where we "Teach" the AI by feeding it example sentences.
     init {
         trainModels()
     }
 
     private fun trainModels() {
+        // --- TRAIN NAIVE BAYES (Sentiment) ---
+        // We provide examples of text and tell the model what sentiment they represent.
+
         // --- POSITIVE --- (30 samples)
         naiveBayes.train("happy excited joy awesome great", Sentiment.POSITIVE)
         naiveBayes.train("loved blessed wonderful amazing best", Sentiment.POSITIVE)
@@ -25,7 +43,8 @@ object MLProcessor {
         naiveBayes.train("heart feels peaceful full of joy", Sentiment.POSITIVE)
         naiveBayes.train("energetic ready to win", Sentiment.POSITIVE)
         naiveBayes.train("confident future plans success", Sentiment.POSITIVE)
-        // General Keywords
+
+        // General Keywords (Reinforcing important terms)
         naiveBayes.train("happy excited joy awesome great", Sentiment.POSITIVE)
         naiveBayes.train("loved blessed wonderful amazing best", Sentiment.POSITIVE)
         naiveBayes.train("productive energetic accomplished win success", Sentiment.POSITIVE)
@@ -36,6 +55,7 @@ object MLProcessor {
         naiveBayes.train("fun laugh smile playing friends family", Sentiment.POSITIVE)
 
         // SPECIFIC TEST CASE FIXES
+        // These lines target edge cases found during testing to improve accuracy.
         naiveBayes.train("truly wonderful amazing time with family", Sentiment.POSITIVE)
         naiveBayes.train("project finished accomplished", Sentiment.POSITIVE)
         naiveBayes.train("energetic and ready to win", Sentiment.POSITIVE)
@@ -75,7 +95,7 @@ object MLProcessor {
         naiveBayes.train("I feel defeated and overwhelmed", Sentiment.NEGATIVE)
         naiveBayes.train("I'm disappointed in how my day turned out", Sentiment.NEGATIVE)
 
-        // General Keywords
+        // General Keywords (Reinforcing important terms)
         naiveBayes.train("sad tired crying lonely depressed", Sentiment.NEGATIVE)
         naiveBayes.train("angry mad furious hate annoyed", Sentiment.NEGATIVE)
         naiveBayes.train("stressed overwhelmed panic anxious scared", Sentiment.NEGATIVE)
@@ -121,7 +141,7 @@ object MLProcessor {
         naiveBayes.train("not feeling strongly about anything", Sentiment.NEUTRAL)
         naiveBayes.train("day was normal with no big emotions", Sentiment.NEUTRAL)
 
-        // General Keywords
+        // General Keywords (Reinforcing important terms)
         naiveBayes.train("okay fine average normal standard", Sentiment.NEUTRAL)
         naiveBayes.train("nothing special just day routine", Sentiment.NEUTRAL)
         naiveBayes.train("work sleep eat repeat bored tired", Sentiment.NEUTRAL)
@@ -135,10 +155,13 @@ object MLProcessor {
         naiveBayes.train("routine boring safe normal", Sentiment.NEUTRAL)
 
 
-        // --- SVM TRAINING ---
+        // --- TRAIN SVM (Mood Categorization) ---
+        // We feed the SVM lists of emotions (feature 1) and text (feature 2)
+        // to help it learn the nuance between categories.
 
-        //POSITIVE_FOCUS – 20 entries
-        // Added listOf() as the first argument to satisfy the function signature (emotions: List<String>)
+        // Category 1: High-Energy Positive Focus (20 entries)
+        // Note: We pass "listOf()" as the first argument because the SVM expects a list of emotions,
+        // but for these training text examples, we focus purely on the text content.
         svm.train(listOf(), "feeling motivated and ready to work hard", "High-Energy Positive Focus")
         svm.train(listOf(), "I feel productive and focused today", "High-Energy Positive Focus")
         svm.train(listOf(), "starting strong and feeling confident", "High-Energy Positive Focus")
@@ -161,7 +184,7 @@ object MLProcessor {
         svm.train(listOf(), "I feel in control and moving forward", "High-Energy Positive Focus")
 
 
-        // BALANCED_CONTEMPLATIVE (20 samples)
+        // Category 2: Balanced and Contemplative (20 samples)
         svm.train(listOf(), "feeling calm and thinking deeply", "Balanced and Contemplative")
         svm.train(listOf(), "quiet mood reflecting on things", "Balanced and Contemplative")
         svm.train(listOf(), "I'm steady thoughtful and observing", "Balanced and Contemplative")
@@ -184,7 +207,7 @@ object MLProcessor {
         svm.train(listOf(), "not emotional just peaceful and aware", "Balanced and Contemplative")
 
 
-        //DIFFICULT_EMOTIONS (20 samples)
+        // Category 3: Processing Difficult Emotions (20 samples)
         svm.train(listOf(), "feeling stressed and unable to focus", "Processing Difficult Emotions")
         svm.train(listOf(), "I'm anxious and my thoughts are messy", "Processing Difficult Emotions")
         svm.train(listOf(), "my mood is low and heavy right now", "Processing Difficult Emotions")
@@ -206,7 +229,7 @@ object MLProcessor {
         svm.train(listOf(), "I feel emotionally drained without a reason", "Processing Difficult Emotions")
         svm.train(listOf(), "my mood dropped and everything feels heavy", "Processing Difficult Emotions")
 
-        // COMPLEX_EMOTIONS (20 samples)
+        // Category 4: Complex Emotional Landscape (20 samples)
         svm.train(listOf(), "I feel mixed emotions and can't explain them", "Complex Emotional Landscape")
         svm.train(listOf(), "my mood is confusing and hard to understand", "Complex Emotional Landscape")
         svm.train(listOf(), "I feel both calm and bothered at the same time", "Complex Emotional Landscape")
@@ -230,19 +253,33 @@ object MLProcessor {
 
     }
 
+    /**
+     * Helper to call the ReflectionData engine.
+     */
     private fun generateReflection(sentiment: Sentiment, category: String, selectedEmotions: List<String>, journalText: String): Pair<String, String> {
         val bestMatch = ReflectionData.getReflectionFor(selectedEmotions, sentiment, journalText)
         return Pair(bestMatch.prompt, bestMatch.microAction)
     }
 
+    /**
+     * MAIN PUBLIC FUNCTION
+     * Called by JournalActivity to analyze user input.
+     */
     fun processEntry(journalText: String, selectedEmotions: List<String>): AnalysisResult {
 
+        // Combine text + emotions to give the model more context
+        // "happy happy happy" boosts the weight of the word "happy"
         val emotionText = selectedEmotions.joinToString(" ") { "$it $it $it" }
         val enrichedText = "$journalText $emotionText"
 
+        // 1. Predict Sentiment (Positive/Negative)
         val sentiment = naiveBayes.predict(enrichedText)
+
+        // 2. Predict Mood Category (e.g., "High Energy")
         val category = svm.predict(selectedEmotions, journalText)
 
+        // 3. Logic Override: Ensure Sentiment and Category don't contradict each other
+        // e.g., If SVM says "High Energy Positive", we shouldn't return "NEGATIVE" even if Naive Bayes got confused.
         var finalSentiment = sentiment
         if (category == "High-Energy Positive Focus" && sentiment == Sentiment.NEGATIVE) {
             finalSentiment = Sentiment.POSITIVE
@@ -252,6 +289,7 @@ object MLProcessor {
             finalSentiment = Sentiment.NEUTRAL
         }
 
+        // 4. Generate the Reflection Prompt
         val (prompt, microActionDesc) = generateReflection(finalSentiment, category, selectedEmotions, journalText)
 
         return AnalysisResult(
@@ -262,7 +300,9 @@ object MLProcessor {
         )
     }
 
-    // NEW: Extract keywords for statistics visualization
+    /**
+     * Used by StatsActivity to show "Positive Words" vs "Negative Words"
+     */
     fun extractKeyWords(text: String): Pair<List<String>, List<String>> {
         return naiveBayes.identifyKeywords(text)
     }

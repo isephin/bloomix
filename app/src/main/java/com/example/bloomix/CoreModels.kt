@@ -5,28 +5,33 @@ package com.example.bloomix
  * This file defines the structures used to hold the results of the AI analysis.
  */
 
-// 1. Enumeration for Journal Sentiment Analysis (from Naïve Bayes)
+// 1. Enumeration for Sentiment (Positive, Neutral, Negative)
+// The Naïve Bayes classifier outputs one of these three values.
 enum class Sentiment {
     POSITIVE,
     NEUTRAL,
     NEGATIVE
 }
 
-// 2. Data structure for Micro-Actions (Suggested small tasks)
+// 2. Data structure for Micro-Actions
+// A simple suggestion (e.g., "Take a breath") generated based on the user's mood.
 data class MicroAction(
-    val type: String, // E.g., "Rest", "Organize", "Grounding"
-    val description: String // E.g., "Take 10 minutes to sit quietly without your phone."
+    val type: String,       // Category: "Rest", "Organize", etc.
+    val description: String // The actual text displayed to the user.
 )
 
-// 3. Complete AI Analysis Results (Combines Naïve Bayes, SVM, and LLM output)
+// 3. Complete AI Analysis Results
+// This object bundles everything the AI produces so it can be passed to the Result Screen easily.
 data class AnalysisResult(
-    // Naïve Bayes Sentiment Analysis (from journalText)
+    // The basic feeling detected (Happy/Sad/Neutral)
     val sentiment: Sentiment,
 
-    // SVM Mood Category Classification (based on selectedMoods + journalText)
-    val overallMoodCategory: String, // E.g., "High-Energy Positive Focus"
+    // The specific mood category detected by the SVM (e.g., "High-Energy Positive Focus")
+    val overallMoodCategory: String,
 
-    // AI-Generated Output (Reflection Prompt and Micro-Actions)
+    // The personalized question derived from ReflectionData
     val reflectionPrompt: String,
+
+    // The list of suggested small tasks
     val suggestedMicroActions: List<MicroAction>
 )

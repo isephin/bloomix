@@ -19,15 +19,16 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.core.content.res.ResourcesCompat
-import androidx.lifecycle.lifecycleScope // <--- Import
-import kotlinx.coroutines.Dispatchers    // <--- Import
-import kotlinx.coroutines.launch       // <--- Import
-import kotlinx.coroutines.withContext  // <--- Import
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 import kotlin.math.abs
 
 class StatsActivity : AppCompatActivity() {
 
+    // Helper map for emotion colors (used in the charts)
     private val emotionColors = mapOf(
         "loved" to "#FF88AA", "annoyed" to "#FF6666", "angry" to "#FF3300",
         "stressed" to "#FFAA66", "happy" to "#FFDD66", "confused" to "#FFFF66",
@@ -43,24 +44,32 @@ class StatsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_stats)
 
+        // 1. Get the target month/year from Intent (defaults to today)
         val cal = Calendar.getInstance()
         currentMonth = intent.getIntExtra("month", cal.get(Calendar.MONTH))
         currentYear = intent.getIntExtra("year", cal.get(Calendar.YEAR))
 
+        // 2. Setup Navigation Buttons
         findViewById<ImageButton>(R.id.btnBack).setOnClickListener { finish() }
         findViewById<ImageButton>(R.id.btnPrevMonth).setOnClickListener { changeMonth(-1) }
         findViewById<ImageButton>(R.id.btnNextMonth).setOnClickListener { changeMonth(1) }
 
+        // 3. Setup Swipe Gestures
         val swipeListener = object : OnSwipeTouchListener(this@StatsActivity) {
             override fun onSwipeRight() { changeMonth(-1) }
             override fun onSwipeLeft() { changeMonth(1) }
         }
+        // Attach to main layout and scrollview to catch touches everywhere
         findViewById<View>(R.id.statsRoot).setOnTouchListener(swipeListener)
         findViewById<ScrollView>(R.id.statsScrollView).setOnTouchListener(swipeListener)
 
+        // 4. Initial Load
         loadStats()
     }
 
+    /**
+     * Logic to handle month navigation (wrapping Dec -> Jan)
+     */
     private fun changeMonth(offset: Int) {
         currentMonth += offset
         if (currentMonth < 0) {
@@ -73,17 +82,24 @@ class StatsActivity : AppCompatActivity() {
         loadStats()
     }
 
+    /**
+     * CORE FUNCTION:
+     * 1. Fetches data from DB.
+     * 2. Processes statistics (Counts, Sentiment Scores) in background.
+     * 3. Updates the UI on the main thread.
+     */
     private fun loadStats() {
+        // Update Header
         findViewById<TextView>(R.id.tvStatsDate).text = "$currentYear.${String.format("%02d", currentMonth + 1)}"
 
-        // --- DATABASE FETCH ---
+        // Start Coroutine
         lifecycleScope.launch {
-            // 1. Fetch Data from Room
+            // STEP 1: Fetch raw data (I/O operation)
             val entries = AppDatabase.getDatabase(applicationContext)
                 .journalDao()
                 .getEntriesForMonth(currentYear, currentMonth)
 
-            // 2. Process Data (Move to background thread for safety)
+            // STEP 2: Process Heavy Logic (CPU operation) on DEFAULT dispatcher
             withContext(Dispatchers.Default) {
                 val flowerCounts = mutableMapOf<String, Int>()
                 val emotionCounts = mutableMapOf<String, Int>()
@@ -92,42 +108,46 @@ class StatsActivity : AppCompatActivity() {
                 val combinedJournalText = StringBuilder()
 
                 entries.forEach { entry ->
-                    // Flower Count
+                    // Count flowers for the Garden view
                     flowerCounts[entry.flowerKey] = flowerCounts.getOrDefault(entry.flowerKey, 0) + 1
 
-                    // Emotions
+                    // Parse emotions string ("happy,sad") into list
                     val dayEmotions = if (entry.emotions.isNotEmpty()) entry.emotions.split(",") else emptyList()
                     dailyEmotionsMap[entry.day] = dayEmotions
 
-                    // Text for AI Keywords
+                    // Aggregate all text for Keyword analysis
                     combinedJournalText.append(entry.journalText).append(" ")
 
-                    // Sentiment Score Calculation
+                    // Calculate a simple "Positivity Score" for the day (0-100)
                     var posCount = 0.0
                     dayEmotions.forEach { emo ->
                         val clean = emo.trim().lowercase()
                         emotionCounts[clean] = emotionCounts.getOrDefault(clean, 0) + 1
                         if (clean in listOf("happy", "excited", "loved", "calm", "grateful")) posCount++
                     }
+                    // Score = % of positive emotions in that day
                     val score = if (dayEmotions.isNotEmpty()) (posCount / dayEmotions.size * 100).toInt() else 0
                     dailySentimentScores[entry.day] = score
                 }
 
-                // 3. Extract Keywords using MLProcessor
+                // Run ML logic to extract most frequent positive/negative words
                 val (posWords, negWords) = MLProcessor.extractKeyWords(combinedJournalText.toString())
 
-                // 4. Update UI on Main Thread
+                // STEP 3: Update UI on MAIN dispatcher
                 withContext(Dispatchers.Main) {
                     setupGardenList(flowerCounts)
                     setupEmotionsList(emotionCounts)
                     setupDailyChart(dailyEmotionsMap)
                     setupPositiveIndex(dailySentimentScores)
 
+                    // Display keywords or fallback text
                     val posDisplay = if (posWords.isNotEmpty()) posWords.take(3).joinToString(", ") { it.replaceFirstChar { c -> c.uppercase() } } else "None detected"
                     val negDisplay = if (negWords.isNotEmpty()) negWords.take(3).joinToString(", ") { it.replaceFirstChar { c -> c.uppercase() } } else "None detected"
 
                     findViewById<TextView>(R.id.tvPosWords).text = posDisplay
                     findViewById<TextView>(R.id.tvNegWords).text = negDisplay
+
+                    // Set color coding for keywords
                     findViewById<TextView>(R.id.tvPosWords).setTextColor(Color.parseColor("#4CAF50"))
                     findViewById<TextView>(R.id.tvNegWords).setTextColor(Color.parseColor("#F44336"))
                 }
@@ -135,14 +155,7 @@ class StatsActivity : AppCompatActivity() {
         }
     }
 
-    // ... (Keep your setupGardenList, createFlowerCard, etc. exactly the same as before) ...
-    // ... (Copy/Paste the UI helper methods from your previous StatsActivity file here) ...
-    // ... (For brevity, I assume you have the UI methods: setupGardenList, setupEmotionsList, setupDailyChart, setupPositiveIndex, createStackedBar, createBar, applyGamjaFont, getEmotionColor, OnSwipeTouchListener) ...
-
-    // NOTE: Ensure you keep the 'setupGardenList' and other UI methods from your original file.
-    // They don't need changes, only 'loadStats' needed the DB logic.
-
-    // --- 1. GARDEN SETUP ---
+    // --- 1. GARDEN SETUP (Horizontal Scroll List) ---
     private fun setupGardenList(flowers: Map<String, Int>) {
         val container = findViewById<LinearLayout>(R.id.gardenContainer)
         container.removeAllViews()
@@ -156,16 +169,19 @@ class StatsActivity : AppCompatActivity() {
             return
         }
 
+        // Sort by most collected flowers and add cards
         flowers.entries.sortedByDescending { it.value }.forEach { (key, count) ->
             val card = createFlowerCard(key, count, flowers)
             container.addView(card)
         }
 
+        // Clicking the main card opens the full Garden Dialog
         findViewById<View>(R.id.cardGarden).setOnClickListener {
             showGardenDialog(flowers)
         }
     }
 
+    /** Creates the popup dialog showing all flowers collected */
     private fun showGardenDialog(flowers: Map<String, Int>) {
         val dialog = Dialog(this)
         dialog.setContentView(R.layout.dialog_garden)
@@ -178,6 +194,7 @@ class StatsActivity : AppCompatActivity() {
 
         dialog.findViewById<View>(R.id.btnCloseGarden)?.setOnClickListener { dialog.dismiss() }
 
+        // List View inside Dialog
         flowers.entries.sortedByDescending { it.value }.forEach { (key, count) ->
             val row = LinearLayout(this)
             row.orientation = LinearLayout.HORIZONTAL
@@ -214,6 +231,7 @@ class StatsActivity : AppCompatActivity() {
         dialog.show()
     }
 
+    /** Helper to create a single Flower Card for the dashboard */
     private fun createFlowerCard(key: String, count: Int, allFlowers: Map<String, Int>): View {
         val card = CardView(this)
         val params = LinearLayout.LayoutParams(280, 400)
@@ -259,6 +277,7 @@ class StatsActivity : AppCompatActivity() {
         return card
     }
 
+    // --- 2. EMOTION LIST SETUP ---
     private fun setupEmotionsList(counts: Map<String, Int>) {
         val container = findViewById<LinearLayout>(R.id.emotionsListContainer)
         val btnMore = findViewById<TextView>(R.id.btnShowMore)
@@ -267,6 +286,7 @@ class StatsActivity : AppCompatActivity() {
         val total = counts.values.sum()
         val sorted = counts.entries.sortedByDescending { it.value }
 
+        // Inner function to render rows. Limit is 4 initially.
         fun render(limit: Int) {
             container.removeAllViews()
             sorted.take(limit).forEach { (emo, count) ->
@@ -274,17 +294,18 @@ class StatsActivity : AppCompatActivity() {
                 container.addView(createEmotionRow(emo, count, percent))
             }
         }
-        render(4)
+        render(4) // Initial render
 
+        // "Show More" logic
         if (sorted.size > 4) {
             btnMore.visibility = View.VISIBLE
             var expanded = false
             btnMore.setOnClickListener {
                 if (!expanded) {
-                    render(sorted.size)
+                    render(sorted.size) // Show all
                     btnMore.text = "View Less ^"
                 } else {
-                    render(4)
+                    render(4) // Collapse
                     btnMore.text = "View More v"
                 }
                 expanded = !expanded
@@ -294,6 +315,7 @@ class StatsActivity : AppCompatActivity() {
         }
     }
 
+    /** Creates a row with Icon + Text + Progress Bar */
     private fun createEmotionRow(emotion: String, count: Int, percent: Int): View {
         val layout = LinearLayout(this)
         layout.orientation = LinearLayout.VERTICAL
@@ -332,6 +354,7 @@ class StatsActivity : AppCompatActivity() {
         return layout
     }
 
+    // --- 3. DAILY CHART SETUP (Stacked Bars) ---
     private fun setupDailyChart(dailyData: Map<Int, List<String>>) {
         val container = findViewById<LinearLayout>(R.id.dailyChartContainer)
         val avgTxt = findViewById<TextView>(R.id.tvAvgEmotions)
@@ -344,6 +367,7 @@ class StatsActivity : AppCompatActivity() {
             avgTxt.text = "avg. $avg"
         }
 
+        // Loop through all days of month to create bars
         for (d in 1..31) {
             val emotions = dailyData[d] ?: emptyList()
             if (emotions.isNotEmpty()) {
@@ -352,6 +376,7 @@ class StatsActivity : AppCompatActivity() {
         }
     }
 
+    /** Creates a single vertical bar composed of multiple colors (emotions) */
     private fun createStackedBar(day: Int, emotions: List<String>): View {
         val barContainer = LinearLayout(this)
         barContainer.orientation = LinearLayout.VERTICAL
@@ -360,6 +385,7 @@ class StatsActivity : AppCompatActivity() {
         params.marginEnd = 12
         barContainer.layoutParams = params
 
+        // Top number (Count)
         val countText = TextView(this)
         countText.text = "${emotions.size}"
         countText.gravity = Gravity.CENTER
@@ -367,9 +393,10 @@ class StatsActivity : AppCompatActivity() {
         applyGamjaFont(countText)
         barContainer.addView(countText)
 
+        // The colored stack
         val stack = LinearLayout(this)
         stack.orientation = LinearLayout.VERTICAL
-        val height = (emotions.size * 40).coerceAtMost(500)
+        val height = (emotions.size * 40).coerceAtMost(500) // Cap height
         stack.layoutParams = LinearLayout.LayoutParams(40, height)
 
         emotions.forEach { emo ->
@@ -380,6 +407,7 @@ class StatsActivity : AppCompatActivity() {
         }
         barContainer.addView(stack)
 
+        // Bottom number (Day)
         val dayText = TextView(this)
         dayText.text = "$day"
         dayText.gravity = Gravity.CENTER
@@ -391,6 +419,7 @@ class StatsActivity : AppCompatActivity() {
         return barContainer
     }
 
+    // --- 4. POSITIVE INDEX SETUP (Green/Red Bars) ---
     private fun setupPositiveIndex(dailyScores: Map<Int, Int>) {
         val container = findViewById<LinearLayout>(R.id.positiveIndexContainer)
         val avgTxt = findViewById<TextView>(R.id.tvAvgPositive)
@@ -409,12 +438,14 @@ class StatsActivity : AppCompatActivity() {
         for (d in 1..31) {
             val score = dailyScores[d]
             if (score != null) {
+                // Green if >= 50%, Red if < 50%
                 val color = if(score >= 50) "#66FF66" else "#FF6666"
                 container.addView(createBar(d, score, color))
             }
         }
     }
 
+    /** Creates a simple vertical bar */
     private fun createBar(label: Int, value: Int, colorHex: String): View {
         val layout = LinearLayout(this)
         layout.orientation = LinearLayout.VERTICAL
@@ -458,6 +489,7 @@ class StatsActivity : AppCompatActivity() {
         return Color.parseColor(hex)
     }
 
+    // --- SWIPE GESTURE HELPER ---
     open class OnSwipeTouchListener(ctx: Context) : View.OnTouchListener {
         private val gestureDetector = GestureDetector(ctx, GestureListener())
         override fun onTouch(v: View, event: MotionEvent): Boolean {

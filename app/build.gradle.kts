@@ -1,18 +1,24 @@
 plugins {
+    // Standard Android and Kotlin plugins
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    // Helper to use Jetpack Compose (Modern UI)
     alias(libs.plugins.kotlin.compose)
+    // Required for Firebase to work
     id("com.google.gms.google-services")
-    id("kotlin-kapt") // <--- This line enables the 'kapt' command at the bottom
+    // REQUIRED: Kotlin Annotation Processing Tool.
+    // This allows Room to generate the SQL code for your database automatically.
+    id("kotlin-kapt")
 }
 
 android {
+    // Unique ID for your app on the Play Store/Phone
     namespace = "com.example.bloomix"
     compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.bloomix"
-        minSdk = 24
+        minSdk = 24 // Android 7.0 (Nougat) - covers ~96% of devices
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -22,6 +28,7 @@ android {
 
     buildTypes {
         release {
+            // Shrinks code size for the final store version
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -29,6 +36,8 @@ android {
             )
         }
     }
+
+    // Java Version Compatibility
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -36,6 +45,8 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+
+    // Enable Jetpack Compose features
     buildFeatures {
         compose = true
     }
@@ -45,42 +56,48 @@ android {
 }
 
 dependencies {
-    // Base Android dependencies
+    // --- CORE ANDROID UI ---
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 
-    // Jetpack Compose BOM (manages all versions)
+    // --- JETPACK COMPOSE (Modern UI Toolkit) ---
+    // Even though you use XML, these libs often come default in new projects
     implementation(platform("androidx.compose:compose-bom:2024.02.00"))
-
-    // Jetpack Compose UI and Material
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
-    // --- REQUIRED FOR LAYOUTS & OPTIMIZATIONS ---
+    // --- REQUIRED FOR YOUR XML LAYOUTS ---
+    // RecyclerView: For the Calendar Grid and History List
     implementation("androidx.recyclerview:recyclerview:1.3.2")
+    // CardView: For the rounded cards in History and Results
     implementation("androidx.cardview:cardview:1.0.0")
+    // Coroutines: For running Database/ML tasks in the background without freezing UI
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
-    // Activity Compose
+    // Activity Compose integration
     implementation("androidx.activity:activity-compose:1.9.0")
 
-    // Firebase
+    // --- FIREBASE (Authentication) ---
+    // The BOM (Bill of Materials) ensures all Firebase versions match automatically
     implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
     implementation("com.google.firebase:firebase-auth")
 
-    // Material Components (optional)
+    // Material Design Components (Buttons, TextFields styling)
     implementation(libs.material)
 
-    // Tests
+    // --- UNIT TESTING ---
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 
-    // --- ROOM DATABASE ---
+    // --- ROOM DATABASE (CRITICAL) ---
+    // 1. Runtime: The core database code
+    // 2. KTX: Kotlin extensions to make SQL queries easier
+    // 3. Compiler: Generates the actual Java code from your @Dao annotations (needs kapt)
     val room_version = "2.6.1"
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")

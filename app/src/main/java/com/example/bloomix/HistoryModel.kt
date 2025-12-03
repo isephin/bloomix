@@ -3,12 +3,12 @@ package com.example.bloomix
 import java.util.Date
 
 data class HistoryItem(
-    val dateKey: String,      // "2025-11-05"
-    val dateObj: Date,        // For sorting
-    val dayNumber: String,    // "05"
-    val dayName: String,      // "Mon"
-    val monthYear: String,    // "2025.09"
-    val flowerName: String,   // "Red Rose"
-    val flowerResId: Int,     // Drawable ID
-    val emotions: List<String> // List of emotion names
+    val dateKey: String,       // ID for database lookups when clicked
+    val dateObj: Date,         // Helper for sorting the list chronologically
+    val dayNumber: String,     // Formatted day: "05"
+    val dayName: String,       // Formatted day name: "Mon"
+    val monthYear: String,     // Formatted header: "2025.09"
+    val flowerName: String,    // Display name: "Red Rose"
+    val flowerResId: Int,      // The drawable resource ID for the flower image
+    val emotions: List<String> // List of emotion names to generate the small icons
 )

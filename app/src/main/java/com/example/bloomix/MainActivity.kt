@@ -10,11 +10,18 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // 1. Initialize "Go to Login" button
         val btnLogin = findViewById<Button?>(R.id.goToLogin)
-        val btnSignUp = findViewById<Button?>(R.id.goToSignUp)
+
+        // 2. Set Click Listener to open the Login Activity
         btnLogin?.setOnClickListener {
             startActivity(Intent(this, LogIn::class.java))
         }
+
+        // 3. Initialize "Go to Sign Up" button
+        val btnSignUp = findViewById<Button?>(R.id.goToSignUp)
+
+        // 4. Set Click Listener to open the Sign Up Activity
         btnSignUp?.setOnClickListener {
             startActivity(Intent(this, SignUp::class.java))
         }
