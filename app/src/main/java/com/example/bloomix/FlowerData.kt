@@ -57,6 +57,7 @@ object FlowerData {
 
     // --- 2. FLOWER DEFINITIONS ---
     // A hardcoded map connecting a unique key (e.g., "rose") to its full FlowerInfo data.
+    // NOTE: This must be public (no 'private' keyword) so StatsActivity can read it.
     val flowers = mapOf(
         "rose" to FlowerInfo(
             R.drawable.rose,
@@ -248,7 +249,7 @@ object FlowerData {
             "Do one small thing that scares you today."
         ),
         "chamomile" to FlowerInfo(
-            R.drawable.camellia,
+            R.drawable.camellia, // Kept as provided in your original code
             "Chamomile",
             "Patience in Adversity",
             "Represents energy in adversity and patience.",
@@ -272,7 +273,6 @@ object FlowerData {
 
     // --- 3. NEW: CENTRALIZED MAPPING LOGIC ---
     // This defines which flowers can appear for a specific emotion.
-    // e.g. If you feel "happy", you might get a marigold, morning_glory, or dahlia.
     private val emotionToFlowerMap = mapOf(
         "happy" to listOf("marigold", "morning_glory", "dahlia"),
         "sad" to listOf("bluebell", "hydrangea", "lilac"),
@@ -298,7 +298,6 @@ object FlowerData {
         }
 
         // 1. Find the most frequent emotion in the user's selection
-        // "groupingBy { it }.eachCount()" turns ["happy", "happy", "sad"] into { "happy": 2, "sad": 1 }
         val mostFrequent = selectedEmotions
             .groupingBy { it }
             .eachCount()
@@ -307,7 +306,7 @@ object FlowerData {
         // 2. Look up the list of possible flowers for that dominant emotion
         val possibleFlowers = emotionToFlowerMap[mostFrequent]
 
-        // 3. Return a random flower from that list, or a random fallback if something went wrong
+        // 3. Return a random flower from that list, or a random fallback
         return if (possibleFlowers != null && possibleFlowers.isNotEmpty()) {
             possibleFlowers.random()
         } else {
@@ -321,7 +320,6 @@ object FlowerData {
     fun getDrawableForName(context: Context, flowerName: String): Int {
         val key = flowerName.lowercase().trim()
         val info = flowers[key]
-        // Return 0 if the flower isn't found (which lets the UI handle empty states)
         return info?.drawable ?: 0
     }
 }

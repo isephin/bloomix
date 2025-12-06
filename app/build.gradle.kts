@@ -59,11 +59,13 @@ dependencies {
     // --- CORE ANDROID UI ---
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation("androidx.appcompat:appcompat:1.6.1")
+
+    // UPDATED: Ensures AppCompatActivity works correctly
+    implementation("androidx.appcompat:appcompat:1.7.0")
+
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 
     // --- JETPACK COMPOSE (Modern UI Toolkit) ---
-    // Even though you use XML, these libs often come default in new projects
     implementation(platform("androidx.compose:compose-bom:2024.02.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
@@ -95,9 +97,6 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 
     // --- ROOM DATABASE (CRITICAL) ---
-    // 1. Runtime: The core database code
-    // 2. KTX: Kotlin extensions to make SQL queries easier
-    // 3. Compiler: Generates the actual Java code from your @Dao annotations (needs kapt)
     val room_version = "2.6.1"
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")

@@ -12,9 +12,7 @@ import kotlin.math.sqrt
  */
 object TextPreprocessor {
 
-    // A set of common "filler" words (stopwords) that don't add emotional meaning.
-    // We remove these so the model focuses on important words like "happy", "failed", "love".
-    // UPDATED: Added context words like "with", "about", "from" to the exclusion list.
+    // REMOVED "no", "not", "nor" from this list so they aren't deleted properly.
     private val stopwords = setOf(
         "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours",
         "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers",
@@ -26,15 +24,13 @@ object TextPreprocessor {
         "through", "during", "before", "after", "above", "below", "to", "from", "up", "down",
         "in", "out", "on", "off", "over", "under", "again", "further", "then", "once", "here",
         "there", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more",
-        "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so",
+        "most", "other", "some", "such", "only", "own", "same", "so", // "no", "nor", "not" removed
         "than", "too", "very", "s", "t", "can", "will", "just", "don", "should", "now",
         "d", "ll", "m", "o", "re", "ve", "y", "ain", "aren", "couldn", "didn", "doesn",
         "hadn", "hasn", "haven", "isn", "ma", "mightn", "mustn", "needn", "shan", "shouldn",
         "wasn", "weren", "won", "wouldn"
     )
 
-    // Maps specific emojis to text tokens so the model can "read" them.
-    // e.g., "😭" becomes "emoji_very_sad"
     private val emojiTokens = mapOf(
         "😃" to "emoji_happy", "😊" to "emoji_happy", "😀" to "emoji_happy",
         "😢" to "emoji_sad", "😭" to "emoji_very_sad",
@@ -44,70 +40,65 @@ object TextPreprocessor {
         "😴" to "emoji_tired", "😓" to "emoji_stressed"
     )
 
-    // Maps punctuation to tokens to capture intensity (e.g., "!!" is stronger than ".")
     private val punctTokens = mapOf(
         "!" to "exclaim", "!!" to "exclaim_multi",
         "?" to "question", "??" to "question_multi",
         "..." to "ellipsis"
     )
 
-    /**
-     * Main function: Converts a raw sentence into a list of meaningful keywords.
-     */
     fun tokenize(text: String): List<String> {
-        // 1. Regex Cleanup: Remove URLs, @mentions, and standard punctuation characters
-        val normalized = text
-            .replace(Regex("https?://\\S+"), " ")
-            .replace(Regex("@\\w+"), " ")
-            .replace(Regex("[.,;:\\(\\)\\[\\]\"]"), " ")
-            .trim()
-
-        // 2. Extract punctuation features (intensity indicators)
-        val punctFeatures = mutableListOf<String>()
-        for ((k, v) in punctTokens) {
-            if (text.contains(k)) punctFeatures.add(v)
-        }
-
-        // 3. Replace Emojis with text tokens
-        var processed = normalized
+        // 1. Process Emojis FIRST (before removing punctuation/symbols)
+        var processed = text
         for ((emoji, token) in emojiTokens) {
             if (processed.contains(emoji)) {
                 processed = processed.replace(emoji, " $token ")
             }
         }
 
-        // 4. Split by whitespace and lowercase everything
-        val rawWords = processed.lowercase().split("\\s+".toRegex()).filter { it.isNotBlank() }
+        // 2. Regex Cleanup (Keep spaces, remove general punctuation)
+        // We carefully keep letters, numbers, and underscores (for emoji_tokens)
+        val normalized = processed
+            .replace(Regex("https?://\\S+"), " ")
+            .replace(Regex("@\\w+"), " ")
+            .replace(Regex("[^\\w\\s]"), " ") // Keep word chars (includes _) and spaces
+            .trim()
+
+        // 3. Extract punctuation features from original text
+        val punctFeatures = mutableListOf<String>()
+        for ((k, v) in punctTokens) {
+            if (text.contains(k)) punctFeatures.add(v)
+        }
+
+        // 4. Split and Lowercase
+        val rawWords = normalized.lowercase().split("\\s+".toRegex()).filter { it.isNotBlank() }
         val out = mutableListOf<String>()
         var i = 0
 
-        // 5. Iterate words to handle Stopwords and Negation (handling "not happy")
+        // 5. Iterate words with CORRECT Negation Logic
         while (i < rawWords.size) {
             val w = rawWords[i]
 
-            // Skip filler words
+            // CHECK NEGATION FIRST
+            if (w == "not" || w == "never" || w == "no" || w == "nor") {
+                if (i + 1 < rawWords.size) {
+                    val next = rawWords[i + 1]
+                    // Create the negated token (e.g., "not_happy")
+                    out.add("not_$next")
+                    i += 2 // Skip both "not" and "happy"
+                    continue
+                }
+            }
+
+            // CHECK STOPWORDS SECOND
             if (w in stopwords) {
                 i++
                 continue
             }
 
-            // Handle Negation: If "not", "never", or "no" appears, combine it with the next word.
-            // e.g., "not good" becomes "not_good" (which is negative, unlike "good")
-            if (w == "not" || w == "never" || w == "no") {
-                if (i + 1 < rawWords.size) {
-                    val next = rawWords[i + 1]
-                    if (next.length > 0) {
-                        out.add("not_$next")
-                        i += 2
-                        continue
-                    }
-                }
-            }
             out.add(w)
             i++
         }
 
-        // Add the punctuation tokens back in
         out.addAll(punctFeatures)
         return out
     }

@@ -10,6 +10,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+
         // 1. Initialize "Go to Login" button
         val btnLogin = findViewById<Button?>(R.id.goToLogin)
 

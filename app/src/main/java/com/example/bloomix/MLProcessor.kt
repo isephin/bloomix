@@ -1,309 +1,298 @@
 package com.example.bloomix
 
-/**
- * Singleton object that acts as the "Bridge" between the App's UI and the ML Algorithms.
- * It holds the trained instances of Naive Bayes (Sentiment) and SVM (Mood Category).
- */
+import android.content.Context
+import android.util.Log
+import org.json.JSONArray
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.util.Locale
+import kotlin.math.ln
+
 object MLProcessor {
 
-    // 1. Initialize the Sentiment Classifier (Naive Bayes)
-    private val naiveBayes = NaiveBayesClassifier()
+    // --- NAIVE BAYES VARIABLES ---
+    // Maps Sentiment -> Word -> Frequency Count (TF)
+    private val wordCounts: MutableMap<Sentiment, MutableMap<String, Int>> = mutableMapOf()
 
-    // 2. Initialize the Mood Category Classifier (SVM)
-    // We define the specific categories we want the SVM to distinguish between.
-    private val svm = MulticlassSVMClassifier(
-        listOf(
-            "High-Energy Positive Focus",
-            "Balanced and Contemplative",
-            "Processing Difficult Emotions",
-            "Complex Emotional Landscape"
-        )
+    // Maps Word -> Number of documents it appears in (DF - for IDF calc)
+    private val docFreq: MutableMap<String, Int> = mutableMapOf()
+
+    private val classCounts: MutableMap<Sentiment, Int> = mutableMapOf()
+    private val vocab: MutableSet<String> = mutableSetOf()
+    private var totalDocs = 0
+
+    // --- TUNABLE PARAMETERS ---
+    // Laplace Smoothing Alpha (default 1.0).
+    // Optimization function can change this to find the best value.
+    var smoothingAlpha: Double = 1.0
+
+    // Stop words to ignore
+    private val stopWords = setOf(
+        "the", "is", "at", "which", "on", "a", "an", "and", "or", "but",
+        "of", "to", "in", "it", "i", "my", "me", "was", "with", "just", "for"
     )
 
-    // The 'init' block runs once when the app starts.
-    // This is where we "Teach" the AI by feeding it example sentences.
-    init {
-        trainModels()
+    fun initialize(context: Context, customData: String? = null) {
+        try {
+            clearData()
+
+            // Use customData if provided (by Evaluator), otherwise load from file
+            val jsonString = customData ?: loadJsonFromAssets(context, "training_data.json")
+            val jsonArray = JSONArray(jsonString)
+
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val text = obj.getString("text")
+                val sentimentStr = obj.optString("sentiment", "NEUTRAL")
+                val sentiment = try { Sentiment.valueOf(sentimentStr) } catch(e: Exception) { Sentiment.NEUTRAL }
+
+                train(text, sentiment)
+            }
+            Log.d("MLProcessor", "Training Complete. Docs: $totalDocs, Vocab: ${vocab.size}")
+        } catch (e: Exception) {
+            Log.e("MLProcessor", "Error loading training data: ${e.message}")
+            e.printStackTrace()
+        }
     }
 
-    private fun trainModels() {
-        // --- TRAIN NAIVE BAYES (Sentiment) ---
-        // We provide examples of text and tell the model what sentiment they represent.
-
-        // --- POSITIVE --- (30 samples)
-        naiveBayes.train("happy excited joy awesome great", Sentiment.POSITIVE)
-        naiveBayes.train("loved blessed wonderful amazing best", Sentiment.POSITIVE)
-        naiveBayes.train("productive energetic accomplished win success", Sentiment.POSITIVE)
-        naiveBayes.train("peaceful calm relax content relief", Sentiment.POSITIVE)
-        naiveBayes.train("hope future enjoy looking forward", Sentiment.POSITIVE)
-        naiveBayes.train("grateful thankful appreciate lucky", Sentiment.POSITIVE)
-        naiveBayes.train("almost done finished completed achievement", Sentiment.POSITIVE)
-        naiveBayes.train("fun laugh smile playing friends family", Sentiment.POSITIVE) // Added family
-        naiveBayes.train("truly wonderful amazing time", Sentiment.POSITIVE) // Matches test case
-        naiveBayes.train("heart feels peaceful full of joy", Sentiment.POSITIVE)
-        naiveBayes.train("energetic ready to win", Sentiment.POSITIVE)
-        naiveBayes.train("confident future plans success", Sentiment.POSITIVE)
-
-        // General Keywords (Reinforcing important terms)
-        naiveBayes.train("happy excited joy awesome great", Sentiment.POSITIVE)
-        naiveBayes.train("loved blessed wonderful amazing best", Sentiment.POSITIVE)
-        naiveBayes.train("productive energetic accomplished win success", Sentiment.POSITIVE)
-        naiveBayes.train("peaceful calm relax content relief", Sentiment.POSITIVE)
-        naiveBayes.train("hope future enjoy looking forward", Sentiment.POSITIVE)
-        naiveBayes.train("grateful thankful appreciate lucky", Sentiment.POSITIVE)
-        naiveBayes.train("almost done finished completed achievement", Sentiment.POSITIVE)
-        naiveBayes.train("fun laugh smile playing friends family", Sentiment.POSITIVE)
-
-        // SPECIFIC TEST CASE FIXES
-        // These lines target edge cases found during testing to improve accuracy.
-        naiveBayes.train("truly wonderful amazing time with family", Sentiment.POSITIVE)
-        naiveBayes.train("project finished accomplished", Sentiment.POSITIVE)
-        naiveBayes.train("energetic and ready to win", Sentiment.POSITIVE)
-        naiveBayes.train("received message loved blessed", Sentiment.POSITIVE)
-        naiveBayes.train("confident future plans success", Sentiment.POSITIVE)
-        naiveBayes.train("productive day relax evening", Sentiment.POSITIVE)
-
-        // --- NEGATIVE --- (30 samples)
-        naiveBayes.train("sad tired crying lonely depressed", Sentiment.NEGATIVE)
-        naiveBayes.train("angry mad furious hate annoyed", Sentiment.NEGATIVE)
-        naiveBayes.train("stressed overwhelmed panic anxious scared", Sentiment.NEGATIVE)
-        naiveBayes.train("bad terrible awful horrible fail", Sentiment.NEGATIVE)
-        naiveBayes.train("pain sick hurt headache broken", Sentiment.NEGATIVE)
-        naiveBayes.train("bored stuck nothing empty dull", Sentiment.NEGATIVE)
-        naiveBayes.train("minor inconveniences pissing me off", Sentiment.NEGATIVE)
-        naiveBayes.train("doesn't work error bug fail crash", Sentiment.NEGATIVE)
-        naiveBayes.train("I feel hopeless like nothing will improve", Sentiment.NEGATIVE)
-        naiveBayes.train("everything feels heavy and exhausting today", Sentiment.NEGATIVE)
-        naiveBayes.train("I'm overwhelmed and mentally drained", Sentiment.NEGATIVE)
-        naiveBayes.train("my anxiety is getting worse right now", Sentiment.NEGATIVE)
-        naiveBayes.train("I feel like I'm failing everything", Sentiment.NEGATIVE)
-        naiveBayes.train("too many problems piling up at once", Sentiment.NEGATIVE)
-        naiveBayes.train("today feels rough and emotionally painful", Sentiment.NEGATIVE)
-        naiveBayes.train("I feel lost and unsure about everything", Sentiment.NEGATIVE)
-        naiveBayes.train("my emotions are spiraling and hard to control", Sentiment.NEGATIVE)
-        naiveBayes.train("I'm frustrated with everything happening today", Sentiment.NEGATIVE)
-        naiveBayes.train("my thoughts feel chaotic and messy", Sentiment.NEGATIVE)
-        naiveBayes.train("I feel emotionally unstable right now", Sentiment.NEGATIVE)
-        naiveBayes.train("nothing is going right it’s all falling apart", Sentiment.NEGATIVE)
-        naiveBayes.train("I feel stuck and unable to move forward", Sentiment.NEGATIVE)
-        naiveBayes.train("I just want the day to end already", Sentiment.NEGATIVE)
-        naiveBayes.train("I feel drained and burnt out", Sentiment.NEGATIVE)
-        naiveBayes.train("I feel pressure building and I can't relax", Sentiment.NEGATIVE)
-        naiveBayes.train("my mood is low and I feel disconnected", Sentiment.NEGATIVE)
-        naiveBayes.train("I feel like I'm carrying too much stress", Sentiment.NEGATIVE)
-        naiveBayes.train("everything irritates me today", Sentiment.NEGATIVE)
-        naiveBayes.train("I feel defeated and overwhelmed", Sentiment.NEGATIVE)
-        naiveBayes.train("I'm disappointed in how my day turned out", Sentiment.NEGATIVE)
-
-        // General Keywords (Reinforcing important terms)
-        naiveBayes.train("sad tired crying lonely depressed", Sentiment.NEGATIVE)
-        naiveBayes.train("angry mad furious hate annoyed", Sentiment.NEGATIVE)
-        naiveBayes.train("stressed overwhelmed panic anxious scared", Sentiment.NEGATIVE)
-        naiveBayes.train("bad terrible awful horrible fail", Sentiment.NEGATIVE)
-        naiveBayes.train("pain sick hurt headache broken", Sentiment.NEGATIVE)
-        naiveBayes.train("bored stuck nothing empty dull", Sentiment.NEGATIVE)
-        naiveBayes.train("lonely hurt crying tears", Sentiment.NEGATIVE)
-        naiveBayes.train("minor inconveniences pissing me off", Sentiment.NEGATIVE)
-        naiveBayes.train("doesn't work error bug fail crash", Sentiment.NEGATIVE)
-
-        // SPECIFIC TEST CASE FIXES
-        naiveBayes.train("crying lonely hurt", Sentiment.NEGATIVE)
-        naiveBayes.train("terrible headache sick broken", Sentiment.NEGATIVE)
-        naiveBayes.train("failed test awful horrible", Sentiment.NEGATIVE)
-        naiveBayes.train("furious error bug works", Sentiment.NEGATIVE)
-        naiveBayes.train("scared anxious happen next", Sentiment.NEGATIVE)
-        naiveBayes.train("hate angry annoyed work", Sentiment.NEGATIVE)
-
-        // --- NEUTRAL --- (30 samples)
-        naiveBayes.train("okay fine average normal standard", Sentiment.NEUTRAL)
-        naiveBayes.train("nothing special just day routine", Sentiment.NEUTRAL)
-        naiveBayes.train("work sleep eat repeat bored tired", Sentiment.NEUTRAL)
-        naiveBayes.train("confused unsure maybe perhaps", Sentiment.NEUTRAL)
-        naiveBayes.train("bittersweet mixed complicated weird", Sentiment.NEUTRAL)
-        naiveBayes.train("just another normal day nothing unusual", Sentiment.NEUTRAL)
-        naiveBayes.train("nothing much happened everything was ordinary", Sentiment.NEUTRAL)
-        naiveBayes.train("my mood is neutral not really good or bad", Sentiment.NEUTRAL)
-        naiveBayes.train("things are fine stable and predictable", Sentiment.NEUTRAL)
-        naiveBayes.train("routine activities as usual today", Sentiment.NEUTRAL)
-        naiveBayes.train("not good not bad just existing", Sentiment.NEUTRAL)
-        naiveBayes.train("average day nothing important occurred", Sentiment.NEUTRAL)
-        naiveBayes.train("the day feels plain and uneventful", Sentiment.NEUTRAL)
-        naiveBayes.train("everything feels okay nothing special", Sentiment.NEUTRAL)
-        naiveBayes.train("the mood is steady not emotional", Sentiment.NEUTRAL)
-        naiveBayes.train("manageable day nothing to complain about", Sentiment.NEUTRAL)
-        naiveBayes.train("emotionally flat today nothing intense", Sentiment.NEUTRAL)
-        naiveBayes.train("my thoughts feel neutral and calm", Sentiment.NEUTRAL)
-        naiveBayes.train("the day passed normally and simply", Sentiment.NEUTRAL)
-        naiveBayes.train("stable mood nothing remarkable", Sentiment.NEUTRAL)
-        naiveBayes.train("just doing tasks normally", Sentiment.NEUTRAL)
-        naiveBayes.train("nothing major influenced my mood", Sentiment.NEUTRAL)
-        naiveBayes.train("middle ground type of day", Sentiment.NEUTRAL)
-        naiveBayes.train("not feeling strongly about anything", Sentiment.NEUTRAL)
-        naiveBayes.train("day was normal with no big emotions", Sentiment.NEUTRAL)
-
-        // General Keywords (Reinforcing important terms)
-        naiveBayes.train("okay fine average normal standard", Sentiment.NEUTRAL)
-        naiveBayes.train("nothing special just day routine", Sentiment.NEUTRAL)
-        naiveBayes.train("work sleep eat repeat bored tired", Sentiment.NEUTRAL)
-        naiveBayes.train("confused unsure maybe perhaps", Sentiment.NEUTRAL)
-        naiveBayes.train("bittersweet mixed complicated weird", Sentiment.NEUTRAL)
-
-        // SPECIFIC TEST CASE FIXES
-        naiveBayes.train("standard day ate went to bed", Sentiment.NEUTRAL)
-        naiveBayes.train("weird day mostly average", Sentiment.NEUTRAL)
-        naiveBayes.train("unsure tomorrow perhaps standard", Sentiment.NEUTRAL)
-        naiveBayes.train("routine boring safe normal", Sentiment.NEUTRAL)
-
-
-        // --- TRAIN SVM (Mood Categorization) ---
-        // We feed the SVM lists of emotions (feature 1) and text (feature 2)
-        // to help it learn the nuance between categories.
-
-        // Category 1: High-Energy Positive Focus (20 entries)
-        // Note: We pass "listOf()" as the first argument because the SVM expects a list of emotions,
-        // but for these training text examples, we focus purely on the text content.
-        svm.train(listOf(), "feeling motivated and ready to work hard", "High-Energy Positive Focus")
-        svm.train(listOf(), "I feel productive and focused today", "High-Energy Positive Focus")
-        svm.train(listOf(), "starting strong and feeling confident", "High-Energy Positive Focus")
-        svm.train(listOf(), "bright mood clear goals positive mindset", "High-Energy Positive Focus")
-        svm.train(listOf(), "getting things done with good energy", "High-Energy Positive Focus")
-        svm.train(listOf(), "I feel inspired and capable right now", "High-Energy Positive Focus")
-        svm.train(listOf(), "my goals feel achievable and exciting", "High-Energy Positive Focus")
-        svm.train(listOf(), "I feel sharp focused and prepared", "High-Energy Positive Focus")
-        svm.train(listOf(), "positive progress gives me momentum", "High-Energy Positive Focus")
-        svm.train(listOf(), "I'm ready to take on more challenges", "High-Energy Positive Focus")
-        svm.train(listOf(), "feeling energized and mentally strong", "High-Energy Positive Focus")
-        svm.train(listOf(), "my mind feels clear and goal driven", "High-Energy Positive Focus")
-        svm.train(listOf(), "today feels productive with good pacing", "High-Energy Positive Focus")
-        svm.train(listOf(), "I feel optimistic about the work ahead", "High-Energy Positive Focus")
-        svm.train(listOf(), "making progress makes me feel powerful", "High-Energy Positive Focus")
-        svm.train(listOf(), "feeling enthusiastic about what I'm doing", "High-Energy Positive Focus")
-        svm.train(listOf(), "steady focus and strong motivation today", "High-Energy Positive Focus")
-        svm.train(listOf(), "I feel confident in my decisions today", "High-Energy Positive Focus")
-        svm.train(listOf(), "everything feels aligned and efficient", "High-Energy Positive Focus")
-        svm.train(listOf(), "I feel in control and moving forward", "High-Energy Positive Focus")
-
-
-        // Category 2: Balanced and Contemplative (20 samples)
-        svm.train(listOf(), "feeling calm and thinking deeply", "Balanced and Contemplative")
-        svm.train(listOf(), "quiet mood reflecting on things", "Balanced and Contemplative")
-        svm.train(listOf(), "I'm steady thoughtful and observing", "Balanced and Contemplative")
-        svm.train(listOf(), "processing ideas slowly and clearly", "Balanced and Contemplative")
-        svm.train(listOf(), "my mood is calm and reflective today", "Balanced and Contemplative")
-        svm.train(listOf(), "I feel balanced and emotionally grounded", "Balanced and Contemplative")
-        svm.train(listOf(), "peaceful mood thinking about life", "Balanced and Contemplative")
-        svm.train(listOf(), "calm day with lots of introspection", "Balanced and Contemplative")
-        svm.train(listOf(), "slowing down and understanding myself", "Balanced and Contemplative")
-        svm.train(listOf(), "mentally stable and reflective", "Balanced and Contemplative")
-        svm.train(listOf(), "thinking clearly and staying centered", "Balanced and Contemplative")
-        svm.train(listOf(), "neutral mood but deeply thoughtful", "Balanced and Contemplative")
-        svm.train(listOf(), "letting myself breathe and reflect", "Balanced and Contemplative")
-        svm.train(listOf(), "my energy is calm and controlled", "Balanced and Contemplative")
-        svm.train(listOf(), "I feel relaxed but aware of my emotions", "Balanced and Contemplative")
-        svm.train(listOf(), "I’m observing my thoughts without judgment", "Balanced and Contemplative")
-        svm.train(listOf(), "quiet day allowing space for reflection", "Balanced and Contemplative")
-        svm.train(listOf(), "slow steady mood and inner clarity", "Balanced and Contemplative")
-        svm.train(listOf(), "feeling thoughtful and understanding myself", "Balanced and Contemplative")
-        svm.train(listOf(), "not emotional just peaceful and aware", "Balanced and Contemplative")
-
-
-        // Category 3: Processing Difficult Emotions (20 samples)
-        svm.train(listOf(), "feeling stressed and unable to focus", "Processing Difficult Emotions")
-        svm.train(listOf(), "I'm anxious and my thoughts are messy", "Processing Difficult Emotions")
-        svm.train(listOf(), "my mood is low and heavy right now", "Processing Difficult Emotions")
-        svm.train(listOf(), "emotionally overwhelmed and exhausted", "Processing Difficult Emotions")
-        svm.train(listOf(), "I feel burned out and mentally tired", "Processing Difficult Emotions")
-        svm.train(listOf(), "it's hard to regulate my emotions today", "Processing Difficult Emotions")
-        svm.train(listOf(), "feeling pressured and mentally unstable", "Processing Difficult Emotions")
-        svm.train(listOf(), "too many emotions hitting me at once", "Processing Difficult Emotions")
-        svm.train(listOf(), "my anxiety is louder today", "Processing Difficult Emotions")
-        svm.train(listOf(), "I feel like shutting down emotionally", "Processing Difficult Emotions")
-        svm.train(listOf(), "I feel frustrated and mentally drained", "Processing Difficult Emotions")
-        svm.train(listOf(), "my thoughts feel tense and uncomfortable", "Processing Difficult Emotions")
-        svm.train(listOf(), "I feel lost and emotionally scattered", "Processing Difficult Emotions")
-        svm.train(listOf(), "I feel sad and unable to be productive", "Processing Difficult Emotions")
-        svm.train(listOf(), "my emotions feel unstable and overwhelming", "Processing Difficult Emotions")
-        svm.train(listOf(), "I feel pressured and mentally exhausted", "Processing Difficult Emotions")
-        svm.train(listOf(), "today feels stressful and uncontrollable", "Processing Difficult Emotions")
-        svm.train(listOf(), "my mind feels blocked and tired", "Processing Difficult Emotions")
-        svm.train(listOf(), "I feel emotionally drained without a reason", "Processing Difficult Emotions")
-        svm.train(listOf(), "my mood dropped and everything feels heavy", "Processing Difficult Emotions")
-
-        // Category 4: Complex Emotional Landscape (20 samples)
-        svm.train(listOf(), "I feel mixed emotions and can't explain them", "Complex Emotional Landscape")
-        svm.train(listOf(), "my mood is confusing and hard to understand", "Complex Emotional Landscape")
-        svm.train(listOf(), "I feel both calm and bothered at the same time", "Complex Emotional Landscape")
-        svm.train(listOf(), "it's a weird blend of emotions today", "Complex Emotional Landscape")
-        svm.train(listOf(), "I feel neutral but something feels off", "Complex Emotional Landscape")
-        svm.train(listOf(), "my emotions are unclear and shifting", "Complex Emotional Landscape")
-        svm.train(listOf(), "I feel a strange blend of comfort and worry", "Complex Emotional Landscape")
-        svm.train(listOf(), "bittersweet feelings I can’t fully describe", "Complex Emotional Landscape")
-        svm.train(listOf(), "mentally mixed not sure what I'm feeling", "Complex Emotional Landscape")
-        svm.train(listOf(), "conflicted emotions making things confusing", "Complex Emotional Landscape")
-        svm.train(listOf(), "I feel unsure but not exactly sad", "Complex Emotional Landscape")
-        svm.train(listOf(), "emotionally complicated today", "Complex Emotional Landscape")
-        svm.train(listOf(), "something feels strange inside but I can't label it", "Complex Emotional Landscape")
-        svm.train(listOf(), "I'm feeling both okay and bothered", "Complex Emotional Landscape")
-        svm.train(listOf(), "it's confusing to understand my feelings today", "Complex Emotional Landscape")
-        svm.train(listOf(), "I feel unsettled but not negative", "Complex Emotional Landscape")
-        svm.train(listOf(), "confused emotions swirling inside me", "Complex Emotional Landscape")
-        svm.train(listOf(), "emotionally weird and hard to identify", "Complex Emotional Landscape")
-        svm.train(listOf(), "my thoughts feel tangled and uncertain", "Complex Emotional Landscape")
-        svm.train(listOf(), "feeling multiple emotions at once hard to explain", "Complex Emotional Landscape")
-
+    private fun clearData() {
+        wordCounts.clear()
+        docFreq.clear()
+        classCounts.clear()
+        vocab.clear()
+        totalDocs = 0
+        Sentiment.values().forEach {
+            classCounts[it] = 0
+            wordCounts[it] = mutableMapOf()
+        }
     }
 
-    /**
-     * Helper to call the ReflectionData engine.
-     */
-    private fun generateReflection(sentiment: Sentiment, category: String, selectedEmotions: List<String>, journalText: String): Pair<String, String> {
-        val bestMatch = ReflectionData.getReflectionFor(selectedEmotions, sentiment, journalText)
-        return Pair(bestMatch.prompt, bestMatch.microAction)
-    }
+    private fun train(text: String, sentiment: Sentiment) {
+        val tokens = tokenize(text) // Now uses Stemming!
+        val uniqueTokens = tokens.toSet() // For Doc Frequency
 
-    /**
-     * MAIN PUBLIC FUNCTION
-     * Called by JournalActivity to analyze user input.
-     */
-    fun processEntry(journalText: String, selectedEmotions: List<String>): AnalysisResult {
+        classCounts[sentiment] = (classCounts[sentiment] ?: 0) + 1
+        totalDocs++
 
-        // Combine text + emotions to give the model more context
-        // "happy happy happy" boosts the weight of the word "happy"
-        val emotionText = selectedEmotions.joinToString(" ") { "$it $it $it" }
-        val enrichedText = "$journalText $emotionText"
-
-        // 1. Predict Sentiment (Positive/Negative)
-        val sentiment = naiveBayes.predict(enrichedText)
-
-        // 2. Predict Mood Category (e.g., "High Energy")
-        val category = svm.predict(selectedEmotions, journalText)
-
-        // 3. Logic Override: Ensure Sentiment and Category don't contradict each other
-        // e.g., If SVM says "High Energy Positive", we shouldn't return "NEGATIVE" even if Naive Bayes got confused.
-        var finalSentiment = sentiment
-        if (category == "High-Energy Positive Focus" && sentiment == Sentiment.NEGATIVE) {
-            finalSentiment = Sentiment.POSITIVE
-        } else if (category == "Processing Difficult Emotions" && sentiment == Sentiment.POSITIVE) {
-            finalSentiment = Sentiment.NEGATIVE
-        } else if (category == "Balanced and Contemplative" && sentiment == Sentiment.NEGATIVE) {
-            finalSentiment = Sentiment.NEUTRAL
+        // 1. Update Term Frequency (TF) per class
+        val countsMap = wordCounts[sentiment] ?: return
+        for (token in tokens) {
+            vocab.add(token)
+            countsMap[token] = countsMap.getOrDefault(token, 0) + 1
         }
 
-        // 4. Generate the Reflection Prompt
-        val (prompt, microActionDesc) = generateReflection(finalSentiment, category, selectedEmotions, journalText)
+        // 2. Update Document Frequency (DF) global
+        for (token in uniqueTokens) {
+            docFreq[token] = docFreq.getOrDefault(token, 0) + 1
+        }
+    }
+
+    /**
+     * Applies Lowercasing + Regex Cleaning + Stopword Removal + PORTER STEMMING
+     */
+    private fun tokenize(text: String): List<String> {
+        return text.lowercase(Locale.getDefault())
+            .replace(Regex("[^a-z ]"), "")
+            .split(" ")
+            .filter { it.isNotBlank() && !stopWords.contains(it) }
+            .map { PorterStemmer.stem(it) } // Apply Stemming
+    }
+
+    // --- MAIN ENTRY POINT ---
+    fun processEntry(journalText: String, selectedEmotions: List<String>): AnalysisResult {
+        val sentiment = predictSentiment(journalText, selectedEmotions)
+        val category = determineWeightedCategory(sentiment, selectedEmotions)
 
         return AnalysisResult(
-            sentiment = finalSentiment,
+            sentiment = sentiment,
             overallMoodCategory = category,
-            reflectionPrompt = prompt,
-            suggestedMicroActions = listOf(MicroAction("General", microActionDesc))
+            reflectionPrompt = generateReflection(category, sentiment),
+            suggestedMicroActions = listOf(MicroAction("Recommended", generateMicroAction(category)))
         )
     }
 
     /**
-     * Used by StatsActivity to show "Positive Words" vs "Negative Words"
+     * PREDICT SENTIMENT USING TF-IDF + LAPLACE SMOOTHING
      */
+    private fun predictSentiment(text: String, emotions: List<String>): Sentiment {
+        if (totalDocs == 0) return Sentiment.NEUTRAL
+
+        // Combine text + emotion tags for better context
+        val combinedText = "$text ${emotions.joinToString(" ")}"
+        val tokens = tokenize(combinedText)
+
+        var bestSentiment = Sentiment.NEUTRAL
+        var maxProb = Double.NEGATIVE_INFINITY
+
+        for (sentiment in Sentiment.values()) {
+            val classDocCount = classCounts[sentiment] ?: 0
+            // Prior P(Class)
+            val pClass = ln(classDocCount.toDouble() / totalDocs)
+
+            var logProbWords = 0.0
+            val classTermMap = wordCounts[sentiment]!!
+
+            // Total words in this class (for denominator)
+            val totalTermsInClass = classTermMap.values.sum()
+
+            for (token in tokens) {
+                if (vocab.contains(token)) {
+                    // --- TF-IDF CALCULATION ---
+
+                    // TF: Frequency of word in this specific class
+                    val tf = classTermMap.getOrDefault(token, 0).toDouble()
+
+                    // IDF: log( TotalDocs / (DocFreq + 1) ) + 1
+                    val df = docFreq.getOrDefault(token, 0)
+                    val idf = ln((totalDocs + 1.0) / (df + 1.0)) + 1.0
+
+                    // Weighted Weight
+                    val weightedCount = tf * idf
+
+                    // --- LAPLACE SMOOTHING WITH ALPHA ---
+                    // P(Word|Class) = (WeightedCount + Alpha) / (TotalTerms + Alpha * VocabSize)
+                    val numerator = weightedCount + smoothingAlpha
+                    val denominator = totalTermsInClass + (smoothingAlpha * vocab.size)
+
+                    logProbWords += ln(numerator / denominator)
+                }
+            }
+
+            val totalProb = pClass + logProbWords
+            if (totalProb > maxProb) {
+                maxProb = totalProb
+                bestSentiment = sentiment
+            }
+        }
+        return bestSentiment
+    }
+
+    // --- HYPERPARAMETER OPTIMIZATION ---
+    /**
+     * Call this from ModelEvaluator to find the best Alpha.
+     * Returns a string describing the results.
+     */
+    fun optimizeAlpha(testData: JSONArray): String {
+        val alphasToTest = listOf(0.1, 0.5, 1.0, 1.5, 2.0, 5.0)
+        val sb = StringBuilder()
+        sb.append("Optimizing Alpha:\n")
+
+        var bestAlpha = 1.0
+        var bestAccuracy = 0.0
+
+        for (alpha in alphasToTest) {
+            smoothingAlpha = alpha
+            var correct = 0
+
+            for (i in 0 until testData.length()) {
+                val obj = testData.getJSONObject(i)
+                val text = obj.getString("text")
+                val emotions = jsonArrayToList(obj.getJSONArray("emotions"))
+                val expectedStr = obj.optString("sentiment", "NEUTRAL")
+
+                // Use internal logic directly
+                val predicted = predictSentiment(text, emotions)
+                if (predicted.name == expectedStr) correct++
+            }
+
+            val acc = (correct.toDouble() / testData.length()) * 100.0
+            sb.append("Alpha $alpha -> Acc: ${"%.2f".format(acc)}%\n")
+
+            if (acc > bestAccuracy) {
+                bestAccuracy = acc
+                bestAlpha = alpha
+            }
+        }
+
+        // Set the model to use the winner
+        smoothingAlpha = bestAlpha
+        sb.append(">> Winner: Alpha $bestAlpha")
+        return sb.toString()
+    }
+
+    private fun jsonArrayToList(arr: JSONArray): List<String> {
+        val out = mutableListOf<String>()
+        for (i in 0 until arr.length()) out.add(arr.getString(i))
+        return out
+    }
+
+    // --- LOGIC FIX APPLIED HERE ---
+    private fun determineWeightedCategory(sentiment: Sentiment, emotions: List<String>): String {
+        var highEnergyScore = 0
+        var balancedScore = 0
+        var difficultScore = 0
+        var complexScore = 0
+
+        // 1. Tally scores from emotion tags
+        for (emo in emotions) {
+            when (emo.lowercase(Locale.getDefault())) {
+                "happy", "excited", "loved", "shocked", "pumped", "proud" -> highEnergyScore++
+                "calm", "bored", "steady", "peaceful", "relaxed" -> balancedScore++
+                "sad", "angry", "tired", "stressed", "annoyed", "drained" -> difficultScore++
+                "confused", "mixed" -> complexScore += 2
+            }
+        }
+
+        // 2. Apply sentiment score boost
+        when (sentiment) {
+            Sentiment.POSITIVE -> highEnergyScore += 2
+            Sentiment.NEGATIVE -> difficultScore += 2
+            Sentiment.NEUTRAL -> { balancedScore += 2; complexScore += 1 }
+        }
+
+        // 3. Complex Emotion check (High-Energy and Difficult present)
+        if (highEnergyScore >= 1 && difficultScore >= 1) return "Complex Emotional Landscape"
+
+        // --- NEW TIE-BREAKING LOGIC ---
+        // 4. Find the winning category using explicit precedence.
+        // We prioritize Difficult > High-Energy > Complex > Balanced (as the default/tie-breaker).
+        // This avoids the 'else' trap from the original code.
+
+        val scores = listOf(difficultScore, highEnergyScore, complexScore, balancedScore)
+        val maxScore = scores.maxOrNull() ?: 0
+
+        // Find the index of the *first* score that equals the maximum score.
+        val winningIndex = scores.indexOfFirst { it == maxScore }
+
+        return when (winningIndex) {
+            0 -> "Processing Difficult Emotions"
+            1 -> "High-Energy Positive Focus"
+            2 -> "Complex Emotional Landscape"
+            3 -> "Balanced and Contemplative"
+            else -> "Balanced and Contemplative" // Default for safety (e.g., if maxScore was 0)
+        }
+    }
+    // ------------------------------------
+
+    private fun generateReflection(category: String, sentiment: Sentiment): String {
+        return when (category) {
+            "High-Energy Positive Focus" -> "You're thriving! What fueled this energy today?"
+            "Processing Difficult Emotions" -> "It's okay to feel this way. What is one small step to help you cope?"
+            "Complex Emotional Landscape" -> "There's a lot going on. Can you untangle just one specific feeling?"
+            else -> "A steady day. What brought you a sense of peace?"
+        }
+    }
+
+    private fun generateMicroAction(category: String): String {
+        return when (category) {
+            "High-Energy Positive Focus" -> "Share your win with a friend."
+            "Balanced and Contemplative" -> "Spend 5 minutes observing nature."
+            "Processing Difficult Emotions" -> "Drink a glass of water and stretch."
+            "Complex Emotional Landscape" -> "Listen to a song that comforts you."
+            else -> "Take a deep breath."
+        }
+    }
+
     fun extractKeyWords(text: String): Pair<List<String>, List<String>> {
-        return naiveBayes.identifyKeywords(text)
+        val tokens = tokenize(text)
+        val freqs = tokens.groupingBy { it }.eachCount()
+        val topWords = freqs.entries.sortedByDescending { it.value }.take(5).map { it.key }
+        return Pair(topWords, emptyList())
+    }
+
+    private fun loadJsonFromAssets(context: Context, fileName: String): String {
+        val inputStream = context.assets.open(fileName)
+        val reader = BufferedReader(InputStreamReader(inputStream))
+        return reader.use { it.readText() }
     }
 }

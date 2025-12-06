@@ -18,10 +18,14 @@ class SignUp : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_sign_up)
 
+        // 1. INITIALIZE THE ML PROCESSOR FIRST
+        // This gives it permission to read 'model.json' and 'training_data.json'
+        MLProcessor.initialize(this)
+
         // --- DEVELOPMENT TOOL ---
         // This runs the Naive Bayes accuracy test and prints results to Logcat.
-        // use "ModelEval_Result" on logcat searchbar to get results
-        ModelEvaluator.runEvaluation()
+        // use "ModelEval" on logcat searchbar to get results
+        ModelEvaluator.runEvaluation(this)
 
         // 1. Initialize Firebase
         auth = FirebaseAuth.getInstance()
