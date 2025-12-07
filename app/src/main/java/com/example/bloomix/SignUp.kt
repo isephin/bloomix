@@ -18,10 +18,13 @@ class SignUp : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_sign_up)
 
+        // 1. Initialize ML Processor (Critical for ModelEvaluator)
+        MLProcessor.initialize(applicationContext)
+
         // --- DEVELOPMENT TOOL ---
         // This runs the Naive Bayes accuracy test and prints results to Logcat.
         // use "ModelEval_Result" on logcat searchbar to get results
-        ModelEvaluator.runEvaluation()
+        ModelEvaluator.runEvaluation(this)
 
         // 1. Initialize Firebase
         auth = FirebaseAuth.getInstance()
@@ -39,9 +42,9 @@ class SignUp : AppCompatActivity() {
             val em = email.text.toString().trim()
             val pw = password.text.toString().trim()
 
-            // Validation: Ensure no fields are empty
+            // Input Validation: Check if fields are empty
             if (nn.isEmpty() || em.isEmpty() || pw.isEmpty()) {
-                Toast.makeText(this, "Please fill in all fields.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 

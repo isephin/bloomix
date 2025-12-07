@@ -10,6 +10,11 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // --- CRITICAL INITIALIZATION ---
+        // Initialize the MLProcessor here so it's ready before the user logs in.
+        // This prevents lag later when saving a journal entry.
+        MLProcessor.initialize(applicationContext)
+
         // 1. Initialize "Go to Login" button
         val btnLogin = findViewById<Button?>(R.id.goToLogin)
 

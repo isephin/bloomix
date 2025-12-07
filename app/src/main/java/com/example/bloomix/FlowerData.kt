@@ -205,13 +205,6 @@ object FlowerData {
             "Represents purity and the joy of secret admiration.",
             "Do something kind anonymously today."
         ),
-        "camellia" to FlowerInfo(
-            R.drawable.camellia,
-            "Camellia",
-            "Adoration + Perfection",
-            "Symbolizes longing and perfection in love.",
-            "Practice patience in a moment of waiting today."
-        ),
         "carnation" to FlowerInfo(
             R.drawable.carnation,
             "Carnation",
@@ -247,12 +240,12 @@ object FlowerData {
             "Symbolizes deep love and devotion, found in rugged places.",
             "Do one small thing that scares you today."
         ),
-        "chamomile" to FlowerInfo(
-            R.drawable.camellia,
-            "Chamomile",
-            "Patience in Adversity",
-            "Represents energy in adversity and patience.",
-            "Make yourself a warm drink and sip it slowly."
+        "camellia" to FlowerInfo(
+            R.drawable.camellia, // Keeping existing drawable reference
+            "Camellia (Tsubaki)",
+            "Admiration + Perfection",
+            "In floral language, the red Camellia symbolizes deep love and admiration, while the white represents waiting and affection.",
+            "Compliment yourself or someone else today."
         ),
         "iris" to FlowerInfo(
             R.drawable.iris,
@@ -267,6 +260,13 @@ object FlowerData {
             "Perfect Love",
             "Represents true, deep, and perfect love.",
             "Do one gentle thing for yourself today."
+        ),
+        "sunflower" to FlowerInfo(
+            R.drawable.sunflower,
+            "Sunflower",
+            "Adoration + Loyalty",
+            "Sunflowers turn their heads to follow the sun. They symbolize unwavering faith and unconditional love.",
+            "Stand in the sun for a moment and soak it in."
         )
     )
 
@@ -274,18 +274,18 @@ object FlowerData {
     // This defines which flowers can appear for a specific emotion.
     // e.g. If you feel "happy", you might get a marigold, morning_glory, or dahlia.
     private val emotionToFlowerMap = mapOf(
-        "happy" to listOf("marigold", "morning_glory", "dahlia"),
+        "happy" to listOf("marigold", "morning_glory", "dahlia", "sunflower"), // Added Sunflower
         "sad" to listOf("bluebell", "hydrangea", "lilac"),
         "angry" to listOf("snapdragon", "black_rose"),
         "tired" to listOf("anemone", "aloe_vera", "lavender"),
         "bored" to listOf("white_daisy", "pansy", "cornflower"),
         "confused" to listOf("wisteria", "iris"),
-        "loved" to listOf("rose", "gardenia", "camellia", "carnation"),
+        "loved" to listOf("rose", "gardenia", "camellia", "carnation", "sunflower"),
         "calm" to listOf("lotus", "lily_of_the_valley", "white_rose"),
-        "excited" to listOf("zinnia", "freesia"),
-        "stressed" to listOf("black_rose", "edelweiss", "chamomile"),
+        "excited" to listOf("zinnia", "freesia", "sunflower"),
+        "stressed" to listOf("black_rose", "edelweiss", "camellia"),
         "annoyed" to listOf("azalea", "red_tulip"),
-        "shocked" to listOf("iris", "cherry_blossom")
+        "shocked" to listOf("iris", "cherry_blossom"),
     )
 
     /**

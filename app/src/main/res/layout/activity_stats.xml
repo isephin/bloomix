@@ -83,6 +83,7 @@
         app:layout_constraintTop_toBottomOf="@id/topBar">
 
         <LinearLayout
+            android:id="@+id/containerStats"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -250,7 +251,7 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- 4. POSITIVE INDEX (Chart) -->
+            <!-- 4. POSITIVITY INDEX -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -269,13 +270,14 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
+                        android:gravity="center_vertical"
                         android:layout_marginBottom="16dp">
                         <TextView
                             android:layout_width="0dp"
                             android:layout_weight="1"
                             android:layout_height="wrap_content"
                             android:fontFamily="@font/gamja_flower"
-                            android:text="Positive Index"
+                            android:text="Positivity Index"
                             android:textColor="#333333"
                             android:textSize="34sp" />
                         <TextView
@@ -299,67 +301,6 @@
                             android:orientation="horizontal"
                             android:gravity="bottom" />
                     </HorizontalScrollView>
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- 5. AI KEYWORD ANALYSIS -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="32dp"
-                app:cardBackgroundColor="#FFFFFF"
-                app:cardCornerRadius="24dp"
-                app:cardElevation="2dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="20dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="@font/gamja_flower"
-                        android:text="AI Word Analysis"
-                        android:textColor="#333333"
-                        android:textSize="34sp"
-                        android:layout_marginBottom="12dp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Positive words detected by Naive Bayes:"
-                        android:textColor="#666666"
-                        android:textSize="20sp"
-                        android:fontFamily="@font/gamja_flower"/>
-                    <TextView
-                        android:id="@+id/tvPosWords"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="..."
-                        android:textColor="#4CAF50"
-                        android:textStyle="bold"
-                        android:textSize="24sp"
-                        android:fontFamily="@font/gamja_flower"
-                        android:layout_marginBottom="12dp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Negative words detected by Naive Bayes:"
-                        android:textColor="#666666"
-                        android:textSize="20sp"
-                        android:fontFamily="@font/gamja_flower"/>
-                    <TextView
-                        android:id="@+id/tvNegWords"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="..."
-                        android:textColor="#F44336"
-                        android:textSize="24sp"
-                        android:textStyle="bold"
-                        android:fontFamily="@font/gamja_flower" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 

@@ -105,7 +105,8 @@ class StatsActivity : AppCompatActivity() {
                 val emotionCounts = mutableMapOf<String, Int>()
                 val dailyEmotionsMap = mutableMapOf<Int, List<String>>()
                 val dailySentimentScores = mutableMapOf<Int, Int>()
-                val combinedJournalText = StringBuilder()
+
+                // REMOVED: combinedJournalText StringBuilder
 
                 entries.forEach { entry ->
                     // Count flowers for the Garden view
@@ -115,8 +116,7 @@ class StatsActivity : AppCompatActivity() {
                     val dayEmotions = if (entry.emotions.isNotEmpty()) entry.emotions.split(",") else emptyList()
                     dailyEmotionsMap[entry.day] = dayEmotions
 
-                    // Aggregate all text for Keyword analysis
-                    combinedJournalText.append(entry.journalText).append(" ")
+                    // REMOVED: combinedJournalText appending
 
                     // Calculate a simple "Positivity Score" for the day (0-100)
                     var posCount = 0.0
@@ -130,8 +130,7 @@ class StatsActivity : AppCompatActivity() {
                     dailySentimentScores[entry.day] = score
                 }
 
-                // Run ML logic to extract most frequent positive/negative words
-                val (posWords, negWords) = MLProcessor.extractKeyWords(combinedJournalText.toString())
+                // REMOVED: MLProcessor.extractKeyWords call
 
                 // STEP 3: Update UI on MAIN dispatcher
                 withContext(Dispatchers.Main) {
@@ -140,16 +139,7 @@ class StatsActivity : AppCompatActivity() {
                     setupDailyChart(dailyEmotionsMap)
                     setupPositiveIndex(dailySentimentScores)
 
-                    // Display keywords or fallback text
-                    val posDisplay = if (posWords.isNotEmpty()) posWords.take(3).joinToString(", ") { it.replaceFirstChar { c -> c.uppercase() } } else "None detected"
-                    val negDisplay = if (negWords.isNotEmpty()) negWords.take(3).joinToString(", ") { it.replaceFirstChar { c -> c.uppercase() } } else "None detected"
-
-                    findViewById<TextView>(R.id.tvPosWords).text = posDisplay
-                    findViewById<TextView>(R.id.tvNegWords).text = negDisplay
-
-                    // Set color coding for keywords
-                    findViewById<TextView>(R.id.tvPosWords).setTextColor(Color.parseColor("#4CAF50"))
-                    findViewById<TextView>(R.id.tvNegWords).setTextColor(Color.parseColor("#F44336"))
+                    // REMOVED: Logic to update tvPosWords and tvNegWords (Text and Color)
                 }
             }
         }
