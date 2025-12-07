@@ -9,6 +9,7 @@ import kotlin.math.sqrt
 /**
  * Handles cleaning and preparing text before the AI analyzes it.
  * Raw text is messy; this object turns it into a clean list of "tokens" (words).
+ * * UPDATED: Now connects to PorterStemmer to reduce words to their root form.
  */
 object TextPreprocessor {
 
@@ -44,7 +45,7 @@ object TextPreprocessor {
         "😴" to "emoji_tired", "😓" to "emoji_stressed"
     )
 
-    // Maps punctuation to tokens to capture intensity (e.g., "!!" is stronger than ".")
+    // Maps punctuation to tokens to capture intensity
     private val punctTokens = mapOf(
         "!" to "exclaim", "!!" to "exclaim_multi",
         "?" to "question", "??" to "question_multi",
@@ -81,29 +82,49 @@ object TextPreprocessor {
         val out = mutableListOf<String>()
         var i = 0
 
-        // 5. Iterate words to handle Stopwords and Negation (handling "not happy")
+        // 5. Iterate words to handle Stopwords, Negation, and Stemming
         while (i < rawWords.size) {
             val w = rawWords[i]
 
-            // Skip filler words
+            // Skip filler words (unless they function as negation, checked below)
             if (w in stopwords) {
-                i++
-                continue
+                // Keep processing only if it's a specific negation word in the stopword list?
+                // Our negation logic below checks explicitly for "not", "never", "no".
+                // If "not" is in the stopword list, we must be careful.
+                // "not" IS in the stopword list above, but the loop below catches it specifically.
+                // However, if we 'continue' here, we miss the negation check.
+                // FIX: We only skip if it is NOT a negation word.
+                if (w != "not" && w != "no" && w != "nor") {
+                    i++
+                    continue
+                }
             }
 
             // Handle Negation: If "not", "never", or "no" appears, combine it with the next word.
-            // e.g., "not good" becomes "not_good" (which is negative, unlike "good")
-            if (w == "not" || w == "never" || w == "no") {
+            if (w == "not" || w == "never" || w == "no" || w == "nor") {
                 if (i + 1 < rawWords.size) {
                     val next = rawWords[i + 1]
-                    if (next.length > 0) {
-                        out.add("not_$next")
+                    if (next.isNotEmpty()) {
+                        // RECONNECTED PORTER STEMMER HERE
+                        // We stem the negated word (e.g. "not loving" -> "not_love")
+                        val stemmedNext = PorterStemmer.stem(next)
+                        out.add("not_$stemmedNext")
                         i += 2
                         continue
                     }
                 }
             }
-            out.add(w)
+
+            // Handle Standard Words
+            // We stem standard words, but we skip stemming for our special tokens (like "emoji_happy")
+            // because stemming might mangle them (e.g. "emoji_happy" -> "emoji_happi")
+            if (w.startsWith("emoji_") || punctFeatures.contains(w)) {
+                out.add(w)
+            } else {
+                // RECONNECTED PORTER STEMMER HERE
+                out.add(PorterStemmer.stem(w))
+            }
+
             i++
         }
 
@@ -121,7 +142,7 @@ object TextPreprocessor {
  * It calculates P(Sentiment | Words) to determine if text is POSITIVE, NEGATIVE, or NEUTRAL.
  */
 class NaiveBayesClassifier(
-    private val minWordFreq: Int = 2 // Words must appear at least twice to be considered (reduces noise)
+    private val minWordFreq: Int = 2
 ) {
     // Tracks how many documents belong to each class (Pos/Neg/Neu)
     private var classDocCounts = mutableMapOf<Sentiment, Int>()
@@ -134,7 +155,7 @@ class NaiveBayesClassifier(
 
     private var totalDocs = 0
     private var vocab = mutableSetOf<String>()
-    private var finalized = false // Flag to check if training is complete
+    private var finalized = false
 
     // Temporary storage used during the training phase
     private val docWordSets = mutableListOf<Set<String>>()
@@ -293,10 +314,8 @@ class LinearSVM(private val numFeatures: Int, private val learningRate: Double =
     fun train(features: DoubleArray, label: Int) {
         val y = if (label == 1) 1.0 else -1.0
         val dotProduct = dot(weights, features) + bias
+        val lambda = 0.01
 
-        val lambda = 0.01 // Regularization parameter
-
-        // Hinge Loss Check: If the point is on the wrong side or within the margin...
         if (y * dotProduct < 1.0) {
             // Update weights to push the boundary correctly
             for (i in weights.indices) {
@@ -345,10 +364,11 @@ class MulticlassSVMClassifier(private val categories: List<String>) {
         featureCount = 0
 
         // Hardcoded keywords relevant to mood classification
+        // STEMMED versions (since we now stem inputs, keywords must match)
         val keywords = listOf(
-            "happy", "sad", "angry", "tired", "bored", "confused", "loved", "calm", "shocked",
-            "stressed", "annoyed", "excited", "work", "home", "sleep", "friend", "bad", "good",
-            "lmao", "omg", "ugh", "cringe", "lol", "hate", "love", "study", "exam", "deadline",
+            "happi", "sad", "angri", "tire", "bore", "confus", "love", "calm", "shock",
+            "stress", "annoy", "excit", "work", "home", "sleep", "friend", "bad", "good",
+            "lmao", "omg", "ugh", "cring", "lol", "hate", "love", "studi", "exam", "deadlin",
             "sick", "sick_of", "sick_with", "sick_and"
         )
 
@@ -393,7 +413,12 @@ class MulticlassSVMClassifier(private val categories: List<String>) {
 
         // Set features for selected emotions (e.g., if "happy" is selected, set index of "happy" to 1)
         for (emo in emotions) {
-            featureIndex[emo.lowercase()]?.let { idx -> vec[idx] = 1.0 }
+            // Ensure emotions are stemmed if they are used as keywords,
+            // OR matched directly if they are simple emotion tags.
+            // Since our hardcoded keywords include stemmed "happi", "angri", etc.
+            // we should probably try to match the stemmed version of the emotion name.
+            val stemmedEmo = PorterStemmer.stem(emo.lowercase())
+            featureIndex[stemmedEmo]?.let { idx -> vec[idx] = 1.0 }
         }
 
         // Add features for words in the text
@@ -426,7 +451,7 @@ class MulticlassSVMClassifier(private val categories: List<String>) {
     /** Runs training multiple times (epochs) over the dataset to improve accuracy. */
     fun trainEpochs(dataset: List<Triple<List<String>, String, String>>, epochs: Int = 3) {
         for (e in 0 until epochs) {
-            val shuffled = dataset.shuffled() // Shuffle to prevent bias order
+            val shuffled = dataset.shuffled()
             for ((emotions, text, target) in shuffled) {
                 train(emotions, text, target)
             }

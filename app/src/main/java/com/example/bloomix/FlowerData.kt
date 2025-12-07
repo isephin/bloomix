@@ -274,7 +274,7 @@ object FlowerData {
     // This defines which flowers can appear for a specific emotion.
     // e.g. If you feel "happy", you might get a marigold, morning_glory, or dahlia.
     private val emotionToFlowerMap = mapOf(
-        "happy" to listOf("marigold", "morning_glory", "dahlia", "sunflower"), // Added Sunflower
+        "happy" to listOf("marigold", "dahlia", "sunflower"), // Added Sunflower
         "sad" to listOf("bluebell", "hydrangea", "lilac"),
         "angry" to listOf("snapdragon", "black_rose"),
         "tired" to listOf("anemone", "aloe_vera", "lavender"),
@@ -285,7 +285,7 @@ object FlowerData {
         "excited" to listOf("zinnia", "freesia", "sunflower"),
         "stressed" to listOf("black_rose", "edelweiss", "camellia"),
         "annoyed" to listOf("azalea", "red_tulip"),
-        "shocked" to listOf("iris", "cherry_blossom"),
+        "shocked" to listOf("iris", "cherry_blossom", "morning_glory"),
     )
 
     /**

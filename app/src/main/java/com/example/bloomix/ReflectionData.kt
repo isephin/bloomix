@@ -3,6 +3,7 @@ package com.example.bloomix
 /**
  * Represents a single "Rule" or "Entry" in our reflection engine.
  * The system checks if the user's input matches the criteria (tags, keywords, sentiment) defined here.
+ * It acts as a bridge between the raw analysis results and the user-facing content.
  */
 data class ReflectionEntry(
     val tags: List<String>,       // List of emotion tags this prompt applies to (e.g., "sad", "lonely")
@@ -15,17 +16,20 @@ data class ReflectionEntry(
 /**
  * Singleton object that acts as the "Knowledge Base" for the AI.
  * It contains the data and the logic to retrieve the best match.
+ * This centralized object allows for easy updates to the content without changing the core logic.
  */
 object ReflectionData {
 
     // A hardcoded "Database" of all possible responses the AI can give.
     // This replaces the need for an external API (like ChatGPT), making the app work offline.
+    // Each entry is a specific rule that maps emotions/text to a thoughtful response.
     val dataset = listOf(
         // ==========================================
         // HAPPY / POSITIVE / HIGH ENERGY
         // ==========================================
 
         // Category: Achievement / Work / School
+        // Focuses on celebrating success and reinforcing positive momentum.
         ReflectionEntry(
             listOf("happy", "excited", "proud"),
             listOf("work", "project", "job", "career", "promotion"),
@@ -55,7 +59,18 @@ object ReflectionData {
             "Physically cross the item off your list with a bold pen."
         ),
 
+        // NEW: Tired but Happy (Positive Fatigue)
+        // Addresses the "good tired" feeling after a productive or fun day.
+        ReflectionEntry(
+            listOf("happy", "tired", "satisfied", "proud"),
+            listOf("long day", "busy", "work", "gym", "party", "social"),
+            Sentiment.POSITIVE,
+            "A 'good tired' is the sign of a day fully lived. You gave your energy to things that matter.",
+            "Rest deeply tonight knowing you did enough."
+        ),
+
         // Category: Relationships / Connection
+        // Focuses on gratitude for social bonds and deepening connections.
         ReflectionEntry(
             listOf("loved", "happy", "grateful"),
             listOf("friend", "bestie", "hangout", "laugh", "funny"),
@@ -93,6 +108,7 @@ object ReflectionData {
         ),
 
         // Category: Nature / Peace
+        // Encourages mindfulness and appreciation of the environment.
         ReflectionEntry(
             listOf("calm", "happy", "peaceful"),
             listOf("morning", "walk", "nature", "sun", "outside", "park", "sky"),
@@ -116,6 +132,7 @@ object ReflectionData {
         ),
 
         // Category: Self-Care / Body
+        // Validates physical health and self-care routines.
         ReflectionEntry(
             listOf("grateful", "happy"),
             listOf("food", "meal", "dinner", "lunch", "cooked", "delicious", "ate"),
@@ -146,6 +163,7 @@ object ReflectionData {
         ),
 
         // Category: Travel / Adventure
+        // Focuses on new experiences and celebrating special moments.
         ReflectionEntry(
             listOf("excited", "joyful", "curious"),
             listOf("travel", "trip", "vacation", "journey", "flight", "drive"),
@@ -166,6 +184,7 @@ object ReflectionData {
         // ==========================================
 
         // Category: Sadness / Loneliness
+        // Offers comfort and gentle suggestions for connection during hard times.
         ReflectionEntry(
             listOf("sad", "lonely", "isolated"),
             listOf("friend", "alone", "miss", "breakup", "left", "ignore"),
@@ -202,7 +221,18 @@ object ReflectionData {
             "Put a sticky note on your mirror that says 'I am enough'."
         ),
 
+        // NEW: Empty / Numb
+        // Validates the feeling of emptiness as a form of rest, rather than just sadness.
+        ReflectionEntry(
+            listOf("tired", "bored", "sad"),
+            listOf("empty", "numb", "nothing", "void", "blank"),
+            Sentiment.NEGATIVE,
+            "Sometimes feeling nothing is a way for your mind to rest from feeling too much. Can you just exist for a moment?",
+            "Lay down and stare at the ceiling for 2 minutes."
+        ),
+
         // Category: Stress / Overwhelm
+        // Provides grounding techniques for anxiety and pressure.
         ReflectionEntry(
             listOf("stressed", "overwhelmed", "panic"),
             listOf("time", "busy", "deadline", "schedule", "too much", "late"),
@@ -232,7 +262,18 @@ object ReflectionData {
             "Track your spending for just today."
         ),
 
+        // NEW: Specific Stress Triggers
+        // Addresses environmental stressors that often go unnoticed but cause significant anxiety.
+        ReflectionEntry(
+            listOf("stressed", "annoyed", "tired"),
+            listOf("noise", "loud", "crowd", "people", "pressure"),
+            Sentiment.NEGATIVE,
+            "Environmental overstimulation can be draining. Is there a quiet space you can retreat to for just 5 minutes?",
+            "Put on headphones with white noise or rain sounds."
+        ),
+
         // Category: Anger / Frustration
+        // Helps process anger constructively without suppressing it.
         ReflectionEntry(
             listOf("angry", "annoyed", "frustrated"),
             listOf("boss", "work", "colleague", "email", "meeting", "coworker"),
@@ -263,6 +304,7 @@ object ReflectionData {
         ),
 
         // Category: Physical / Fatigue
+        // Connects physical sensations to emotional states.
         ReflectionEntry(
             listOf("tired", "exhausted"),
             listOf("sleep", "night", "bed", "insomnia", "awake", "tired"),
@@ -278,11 +320,22 @@ object ReflectionData {
             "Drink a large glass of water and lie down."
         ),
 
+        // NEW: Somatic Symptoms of Stress
+        // Helps users recognize when their body is signaling emotional distress.
+        ReflectionEntry(
+            listOf("stressed", "anxious", "tired"),
+            listOf("chest", "tension", "tight", "breath", "shake", "shaking"),
+            Sentiment.NEGATIVE,
+            "Your body is holding onto tension right now. Let's try to release it physically.",
+            "Do a quick body scan: unclench your jaw and drop your shoulders."
+        ),
+
         // ==========================================
         // MIXED / NEUTRAL / COMPLEX
         // ==========================================
 
         // Category: Indecision
+        // Helps users navigate uncertainty.
         ReflectionEntry(
             listOf("confused", "anxious", "uncertain"),
             listOf("decision", "choice", "future", "path", "option"),
@@ -292,6 +345,7 @@ object ReflectionData {
         ),
 
         // Category: Boredom / Routine
+        // Reframes boredom as an opportunity.
         ReflectionEntry(
             listOf("bored", "calm"),
             listOf("nothing", "routine", "same", "day", "normal", "boring"),
@@ -308,6 +362,7 @@ object ReflectionData {
         ),
 
         // Category: Nostalgia
+        // Honors past memories without getting stuck in them.
         ReflectionEntry(
             listOf("nostalgic", "sad", "happy"),
             listOf("past", "childhood", "memory", "old", "photo", "remember"),
@@ -317,6 +372,7 @@ object ReflectionData {
         ),
 
         // Category: Mixed Emotions
+        // Validates the complexity of feeling multiple things at once.
         ReflectionEntry(
             listOf("happy", "sad"),
             listOf("change", "moving", "leaving", "goodbye", "graduate"),
@@ -337,6 +393,36 @@ object ReflectionData {
             Sentiment.NEUTRAL,
             "A 'good tired' is a sign of a day well spent. What drained your energy but filled your cup today?",
             "Do a gentle stretch to release physical tension before bed."
+        ),
+
+        // NEW: Bittersweet / Growth
+        // Specific prompt for the "Complex Emotional Landscape" category involving personal growth.
+        ReflectionEntry(
+            listOf("happy", "sad", "confused"),
+            listOf("growing", "older", "time", "fast", "birthday"),
+            Sentiment.NEUTRAL,
+            "Growth often involves leaving things behind. What is one thing you are glad to take with you into this new chapter?",
+            "Write a one-sentence wish for your future self."
+        ),
+
+        // NEW: Complex Anxiety (Excited but Anxious)
+        // Addresses high-stakes situations where positive and negative feelings mix.
+        ReflectionEntry(
+            listOf("excited", "anxious", "scared"),
+            listOf("new job", "date", "launch", "presentation", "big day"),
+            Sentiment.NEUTRAL,
+            "It's normal to feel fear when you care about the outcome. Can you channel that nervous energy into excitement?",
+            "Stand in a 'power pose' for 30 seconds."
+        ),
+
+        // NEW: Relief and Sadness
+        // Addresses the complex feeling of ending something difficult.
+        ReflectionEntry(
+            listOf("relieved", "sad", "tired"),
+            listOf("over", "ended", "breakup", "quit", "finished"),
+            Sentiment.NEUTRAL,
+            "Ending something can bring both relief and sadness. Allow yourself to feel the weight lift, even if it leaves a space behind.",
+            "Take a deep breath and say 'It is done'."
         ),
 
         // ==========================================
@@ -415,6 +501,7 @@ object ReflectionData {
     /**
      * The Smart Search Algorithm.
      * It scores every entry in the dataset to find the "Best Fit" for the user's current situation.
+     * The scoring system prioritizes keyword matches (context) over simple emotion tag matches.
      */
     fun getReflectionFor(emotions: List<String>, sentiment: Sentiment, journalText: String): ReflectionEntry {
         // Normalize text for easier matching (lowercase and trim whitespace)
