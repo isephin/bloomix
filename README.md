@@ -62,7 +62,7 @@ Bloomix was evaluated using a dataset of 1,142 unique entries and validated by 5
 ---
 
 ## 📂 Project Team
-* **Joseph Christian Cinco** – Project Leader & Lead Developer (Concept, Frontend/Backend, ML Integration).
+* **Joseph Christian C. Cinco** – Project Leader & Lead Developer (Concept, Frontend/Backend, ML Integration).
 * **Faith P. Rojales** – Developer & Research Contributor.
 
 *Developed as a research project at **De La Salle University - Dasmariñas** (2025-2026).*
